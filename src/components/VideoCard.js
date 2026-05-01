@@ -1,0 +1,182 @@
+import React, { useState } from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Play, Heart, Music, Image as ImageIcon } from 'lucide-react-native';
+import { useTheme } from '../context/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
+  const { theme } = useTheme();
+  const [imgError, setImgError] = useState(false);
+  const [loading, setLoading] = useState(true);
+  
+  const isAudio = video.type === 'audio';
+  const snippet = video.snippet || {};
+  
+  // Support both YouTube API and Supabase structures
+  const title = video.title || snippet.title || 'Untitled Divine Content';
+  const thumbnailUrl = video.thumbnail || snippet.thumbnails?.high?.url || snippet.thumbnails?.default?.url;
+  const channelTitle = video.channel_title || snippet.channelTitle || 'Bhajan App';
+
+  return (
+    <TouchableOpacity 
+      style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]} 
+      onPress={onPress} 
+      activeOpacity={0.8}
+    >
+      <View style={styles.thumbnailContainer}>
+        {thumbnailUrl && !imgError ? (
+          <>
+            <Image 
+              source={{ uri: thumbnailUrl }} 
+              style={[styles.thumbnail, isAudio && { opacity: 0.6 }]} 
+              resizeMode="cover"
+              onLoadEnd={() => setLoading(false)}
+              onError={() => {
+                setImgError(true);
+                setLoading(false);
+              }}
+            />
+            {loading && (
+              <View style={[styles.placeholder, { backgroundColor: theme.card }]}>
+                <ActivityIndicator color={theme.primary} />
+              </View>
+            )}
+          </>
+        ) : (
+          <LinearGradient
+            colors={['#1E293B', '#0F172A']}
+            style={styles.thumbnail}
+          >
+            <View style={styles.fallbackContent}>
+              <Music color="#FFB300" size={40} opacity={0.5} />
+              <Text style={styles.fallbackText}>Image Not Available</Text>
+            </View>
+          </LinearGradient>
+        )}
+        
+        <View style={styles.playOverlay}>
+          {isAudio ? <Music size={24} color="#FFB300" /> : <Play size={24} color="#FFB300" fill="#FFB300" />}
+        </View>
+
+        {isAudio && (
+          <View style={styles.audioBadge}>
+            <Text style={styles.audioBadgeText}>AUDIO</Text>
+          </View>
+        )}
+      </View>
+      
+      <View style={styles.infoContainer}>
+        <View style={styles.textContainer}>
+          <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
+            {title}
+          </Text>
+          <Text style={[styles.channelTitle, { color: theme.subtext }]}>
+            {channelTitle}
+          </Text>
+        </View>
+        
+        <TouchableOpacity style={styles.favoriteBtn} onPress={onFavorite}>
+          <Heart 
+            size={24} 
+            color={isFav ? "#FF3B30" : theme.subtext} 
+            fill={isFav ? "#FF3B30" : "transparent"} 
+          />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+const styles = StyleSheet.create({
+  card: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  thumbnailContainer: {
+    position: 'relative',
+    height: 180,
+    width: '100%',
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  placeholder: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fallbackContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fallbackText: {
+    color: '#6B7280',
+    fontSize: 10,
+    fontFamily: 'Outfit-Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  playOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    borderRadius: 16,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 179, 0, 0.2)',
+  },
+  infoContainer: {
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  textContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  title: {
+    fontSize: 16,
+    fontFamily: 'Outfit-Bold',
+    lineHeight: 22,
+  },
+  channelTitle: {
+    fontSize: 12,
+    fontFamily: 'Outfit-Medium',
+    marginTop: 4,
+  },
+  favoriteBtn: {
+    padding: 8,
+  },
+  audioBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    backgroundColor: 'rgba(255, 179, 0, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FFB300',
+  },
+  audioBadgeText: {
+    color: '#FFB300',
+    fontSize: 9,
+    fontFamily: 'Outfit-Black',
+    letterSpacing: 1,
+  },
+});
+
+export default VideoCard;
