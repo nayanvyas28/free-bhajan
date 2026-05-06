@@ -57,7 +57,9 @@ export default function ManageSolutions() {
     setUploading(true);
     setUploadProgress(0);
     try {
-      const publicUrl = await uploadToR2(selectedFile);
+      const publicUrl = await uploadToR2(selectedFile, (progress) => {
+        setUploadProgress(progress);
+      });
       setUploadProgress(100);
       setFormData({ ...formData, url: publicUrl });
       alert(`${formData.type} uploaded successfully!`);

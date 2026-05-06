@@ -15,8 +15,10 @@ const s3Client = new S3Client(r2Config);
 
 /**
  * Uploads a file to Cloudflare R2 with correct Content-Type for streaming
+ * @param {File} file - The file to upload
+ * @param {Function} onProgress - Optional callback for upload progress (0-100)
  */
-export const uploadToR2 = async (file) => {
+export const uploadToR2 = async (file, onProgress) => {
     try {
         const fileExt = file.name.split('.').pop().toLowerCase();
         let contentType = 'application/octet-stream';
@@ -55,10 +57,11 @@ export const uploadToR2 = async (file) => {
             leavePartsOnError: false,
         });
 
-        // We can't easily return progress to the UI from here without a callback, 
-        // but for now we'll just log it.
+        // Pass progress to UI if callback provided
         parallelUploads3.on("httpUploadProgress", (progress) => {
-            console.log(`[R2] Progress: ${Math.round((progress.loaded / progress.total) * 100)}%`);
+            const percent = Math.round((progress.loaded / progress.total) * 100);
+            console.log(`[R2] Progress: ${percent}%`);
+            if (onProgress) onProgress(percent);
         });
 
         await parallelUploads3.done();

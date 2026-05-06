@@ -43,7 +43,9 @@ export default function AddBhajan() {
     setUploadProgress(0);
     
     try {
-      const publicUrl = await uploadToR2(selectedFile);
+      const publicUrl = await uploadToR2(selectedFile, (progress) => {
+        setUploadProgress(progress);
+      });
       setUploadProgress(100);
       
       setFormData({ ...formData, url: publicUrl });
