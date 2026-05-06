@@ -7,17 +7,18 @@ import {
   TouchableOpacity, 
   ActivityIndicator, 
   KeyboardAvoidingView, 
-  Platform,
-  Alert
+  Platform
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useCustomAlert } from '../context/AlertContext';
 import { Phone, MessageSquare, ArrowRight, User } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function LoginScreen({ navigation }) {
   const { theme } = useTheme();
   const { startWhatsAppLogin, verifyWhatsAppLogin } = useAuth();
+  const { showAlert } = useCustomAlert();
   
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
@@ -27,11 +28,19 @@ export default function LoginScreen({ navigation }) {
 
   const handleSendOtp = async () => {
     if (phone.length < 10) {
-      Alert.alert('Invalid Phone', 'Please enter a valid 10-digit phone number.');
+      showAlert({
+        title: 'Invalid Phone',
+        message: 'Please enter a valid 10-digit phone number.',
+        type: 'error'
+      });
       return;
     }
     if (!name) {
-      Alert.alert('Name Required', 'Please enter your name.');
+      showAlert({
+        title: 'Name Required',
+        message: 'Please enter your name.',
+        type: 'warning'
+      });
       return;
     }
     
@@ -41,7 +50,11 @@ export default function LoginScreen({ navigation }) {
       await startWhatsAppLogin(formattedPhone);
       setStep(2);
     } catch (error) {
-      Alert.alert('Error', error.message);
+      showAlert({
+        title: 'Error',
+        message: error.message,
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -49,7 +62,11 @@ export default function LoginScreen({ navigation }) {
 
   const handleVerifyOtp = async () => {
     if (otp.length < 6) {
-      Alert.alert('Invalid OTP', 'Please enter the 6-digit code.');
+      showAlert({
+        title: 'Invalid OTP',
+        message: 'Please enter the 6-digit code.',
+        type: 'error'
+      });
       return;
     }
 
@@ -59,7 +76,11 @@ export default function LoginScreen({ navigation }) {
       await verifyWhatsAppLogin(formattedPhone, otp, name);
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Verification Failed', error.message);
+      showAlert({
+        title: 'Verification Failed',
+        message: error.message,
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }

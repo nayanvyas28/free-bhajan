@@ -12,7 +12,8 @@ export default function BhajanList() {
     title: '',
     category: '',
     sub_type: '',
-    type: ''
+    type: '',
+    thumbnail: ''
   });
 
   useEffect(() => {
@@ -51,7 +52,8 @@ export default function BhajanList() {
       title: bhajan.title,
       category: bhajan.category,
       sub_type: bhajan.sub_type || 'Bhajan',
-      type: bhajan.type
+      type: bhajan.type,
+      thumbnail: bhajan.thumbnail
     });
   };
 
@@ -117,11 +119,20 @@ export default function BhajanList() {
               <tr key={bhajan.id} className={`transition-all group ${editingId === bhajan.id ? 'bg-amber-500/5' : 'hover:bg-slate-800/40'}`}>
                 <td className="px-8 py-6">
                   {editingId === bhajan.id ? (
-                    <input 
-                      className="w-full bg-[#0F172A] border border-amber-500/50 rounded-xl px-4 py-3 text-white font-bold outline-none"
-                      value={editFormData.title}
-                      onChange={e => setEditFormData({...editFormData, title: e.target.value})}
-                    />
+                    <div className="space-y-2">
+                      <input 
+                        className="w-full bg-[#0F172A] border border-amber-500/50 rounded-xl px-4 py-2 text-white font-bold outline-none"
+                        value={editFormData.title}
+                        placeholder="Title"
+                        onChange={e => setEditFormData({...editFormData, title: e.target.value})}
+                      />
+                      <input 
+                        className="w-full bg-[#0F172A] border border-amber-500/50 rounded-xl px-4 py-2 text-slate-400 font-bold outline-none text-[10px]"
+                        value={editFormData.thumbnail}
+                        placeholder="Thumbnail URL"
+                        onChange={e => setEditFormData({...editFormData, thumbnail: e.target.value})}
+                      />
+                    </div>
                   ) : (
                     <div className="flex items-center gap-5">
                       <div className="relative">

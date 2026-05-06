@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions, ActivityIndicator, ScrollView, TextInput } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 import Header from '../components/Header';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getCategories } from '../services/youtubeApi';
-import { Flower, Stars } from 'lucide-react-native';
+import { getCategories, searchBhajans } from '../services/youtubeApi';
+import { Flower, Stars, Search, X } from 'lucide-react-native';
+import { usePlayer } from '../context/PlayerContext';
+import VideoCard from '../components/VideoCard';
 
 const { width } = Dimensions.get('window');
 
@@ -19,8 +22,13 @@ const DEFAULT_CATEGORIES = [
 
 export default function ExploreScreen({ navigation }) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
+  const { playVideo } = usePlayer();
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -31,7 +39,6 @@ export default function ExploreScreen({ navigation }) {
     try {
       const data = await getCategories();
       if (data && data.length > 0) {
-        // Merge DB data with defaults (simplified: if DB has data, use it, else fallback)
         setCategories(data);
       } else {
         setCategories(DEFAULT_CATEGORIES);
@@ -41,6 +48,37 @@ export default function ExploreScreen({ navigation }) {
     }
     setLoading(false);
   };
+
+  const handleSearch = async (query) => {
+    if (!query.trim()) {
+      setIsSearching(false);
+      setSearchResults([]);
+      return;
+    }
+    setLoading(true);
+    setIsSearching(true);
+    
+    // 1. Search Categories locally
+    const matchingCats = categories.filter(c => 
+      c.name.toLowerCase().includes(query.toLowerCase()) || 
+      (t(c.name) && t(c.name).toLowerCase().includes(query.toLowerCase()))
+    );
+    setFilteredCategories(matchingCats);
+
+    // 2. Search Videos via API/DB
+    const results = await searchBhajans(query);
+    setSearchResults(results);
+    setLoading(false);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setIsSearching(false);
+    setSearchResults([]);
+    setFilteredCategories([]);
+  };
+
+  const [filteredCategories, setFilteredCategories] = useState([]);
 
   const renderSection = (type, title, icon) => {
     const filtered = categories.filter(c => (c.type || 'deity') === type);
@@ -64,8 +102,8 @@ export default function ExploreScreen({ navigation }) {
                 colors={['transparent', 'rgba(0,0,0,0.8)']}
                 style={styles.overlay}
               >
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.subtext}>{type === 'deity' ? 'Devotional Selection' : 'Astrological Guide'}</Text>
+                <Text style={styles.name}>{t(item.name)}</Text>
+                <Text style={styles.subtext}>{type === 'deity' ? t('devotionalSelection') : t('astrologicalGuide')}</Text>
               </LinearGradient>
             </TouchableOpacity>
           ))}
@@ -76,15 +114,72 @@ export default function ExploreScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Header title="Explore divine" />
+      <Header />
+      
+      <View style={styles.searchSection}>
+        <View style={[styles.searchInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Search size={20} color={theme.primary} style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={() => handleSearch(searchQuery)}
+            placeholder={t('searchPlaceholder')}
+            placeholderTextColor={theme.subtext}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={clearSearch}>
+              <X size={20} color={theme.subtext} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
       {loading ? (
         <View style={styles.loader}>
           <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {renderSection('deity', 'Devotional Deities', <Flower size={20} color="#FFB300" />)}
-          {renderSection('dosh', 'Kundli Dosh Guidance', <Stars size={20} color="#FFB300" />)}
+          {isSearching ? (
+            <View style={styles.resultsContainer}>
+              {filteredCategories.length > 0 && (
+                <View style={styles.catResults}>
+                  <Text style={[styles.resultsTitle, { color: theme.text }]}>{t('suggestedCategories') || 'Suggested Categories'}</Text>
+                  <View style={styles.grid}>
+                    {filteredCategories.map((item) => (
+                      <TouchableOpacity 
+                        key={item.id || item.name}
+                        style={styles.card}
+                        onPress={() => navigation.navigate('HomeTab', { category: item.name })}
+                      >
+                        <Image source={{ uri: item.image_url }} style={styles.image} />
+                        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.overlay}>
+                          <Text style={styles.name}>{t(item.name)}</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              <Text style={[styles.resultsTitle, { color: theme.text, marginTop: 20 }]}>
+                {searchResults.length > 0 ? `${t('searchResults')} (${searchResults.length})` : t('noResults')}
+              </Text>
+              {searchResults.map((item) => (
+                <VideoCard
+                  key={item.id?.videoId || item.audioUrl}
+                  video={item}
+                  onPress={() => playVideo(item, searchResults)}
+                />
+              ))}
+            </View>
+          ) : (
+            <>
+              {renderSection('deity', t('deities') || 'Devotional Deities', <Flower size={20} color="#FFB300" />)}
+              {renderSection('dosh', t('kundliDosh') || 'Kundli Dosh Guidance', <Stars size={20} color="#FFB300" />)}
+            </>
+          )}
         </ScrollView>
       )}
     </View>
@@ -94,6 +189,17 @@ export default function ExploreScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  searchSection: { padding: 20, paddingTop: 16, paddingBottom: 10 },
+  searchInputWrapper: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    borderRadius: 16, 
+    paddingHorizontal: 16, 
+    height: 56, 
+    borderWidth: 1 
+  },
+  searchIcon: { marginRight: 12 },
+  searchInput: { flex: 1, fontSize: 16, fontFamily: 'Outfit-SemiBold' },
   scrollContent: { padding: 12, paddingBottom: 100 },
   section: { marginBottom: 30 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 8, marginBottom: 16 },
@@ -116,4 +222,14 @@ const styles = StyleSheet.create({
   },
   name: { color: '#FFF', fontSize: 18, fontFamily: 'Outfit-Bold', letterSpacing: 0.5 },
   subtext: { color: '#FFB300', fontSize: 10, fontFamily: 'Outfit-Black', textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 },
+  resultsContainer: { paddingTop: 20 },
+  resultsTitle: { 
+    fontSize: 12, 
+    fontFamily: 'Outfit-Black', 
+    marginBottom: 20, 
+    marginLeft: 12,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    opacity: 0.8
+  },
 });

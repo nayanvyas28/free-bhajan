@@ -1,7 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, Search, Lightbulb, Heart, Music } from 'lucide-react-native';
+import { Home, Search, Lightbulb, Heart, Music, Languages } from 'lucide-react-native';
 import HomeScreen from '../screens/HomeScreen';
 import ExploreScreen from '../screens/ExploreScreen';
 import SolutionScreen from '../screens/SolutionScreen';
@@ -31,7 +31,7 @@ function TabNavigator() {
           if (route.name === 'Explore') return <Search size={size} color={color} />;
           if (route.name === 'Music') return <Music size={size} color={color} />;
           if (route.name === 'Solution') return <Lightbulb size={size} color={color} />;
-          if (route.name === 'Language') return <Languages size={size} color={color} />;
+          if (route.name === 'Favorites') return <Heart size={size} color={color} />;
         },
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.subtext,
@@ -51,19 +51,7 @@ function TabNavigator() {
       <Tab.Screen name="Explore" component={ExploreScreen} options={{ title: t('explore') }} />
       <Tab.Screen name="Music" component={AudioScreen} options={{ title: t('music') }} />
       <Tab.Screen name="Solution" component={SolutionScreen} options={{ title: t('solution') }} />
-      <Tab.Screen 
-        name="Language" 
-        component={HomeScreen}
-        options={{ 
-          title: language === 'en' ? 'हिन्दी' : 'English'
-        }} 
-        listeners={{
-          tabPress: (e) => {
-            e.preventDefault();
-            toggleLanguage();
-          },
-        }}
-      />
+      <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ title: t('favorites') }} />
     </Tab.Navigator>
   );
 }

@@ -7,11 +7,13 @@ import { BlurView } from 'expo-blur';
 import { Play, Pause, X, ChevronDown, SkipBack, SkipForward, Music } from 'lucide-react-native';
 import YoutubeIframe from 'react-native-youtube-iframe';
 import { usePlayer } from '../context/PlayerContext';
+import { useTheme } from '../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { height, width } = Dimensions.get('window');
 
 export default function GlobalPlayer() {
+  const { theme, isDarkMode } = useTheme();
   const {
     currentVideo, isPlaying, pauseVideo, resumeVideo,
     closePlayer, playNext, playPrev, queue, playVideo
@@ -173,19 +175,22 @@ export default function GlobalPlayer() {
         style={[StyleSheet.absoluteFill, { opacity: fullOpacity }]}
         pointerEvents={isExpanded ? 'auto' : 'none'}
       >
-        <LinearGradient colors={['#1A1A2E', '#0F0F13']} style={styles.fullScreenBg}>
+        <LinearGradient 
+          colors={isDarkMode ? ['#1A1A2E', '#0F0F13'] : [theme.background, theme.card]} 
+          style={styles.fullScreenBg}
+        >
           <View style={styles.fullHeader}>
             <TouchableOpacity onPress={toggleExpand} style={styles.iconBtn}>
-              <ChevronDown color="#FFF" size={28} />
+              <ChevronDown color={theme.text} size={28} />
             </TouchableOpacity>
-            <Text style={styles.nowPlayingText}>NOW PLAYING</Text>
+            <Text style={[styles.nowPlayingText, { color: theme.primary }]}>NOW PLAYING</Text>
             <TouchableOpacity onPress={handleClose} style={styles.iconBtn}>
-              <X color="#FFF" size={24} />
+              <X color={theme.text} size={24} />
             </TouchableOpacity>
           </View>
 
-          {/* Artwork / Video slot (the real player goes here when expanded) */}
-          <View style={styles.artworkWrapper}>
+          {/* Artwork / Video slot */}
+          <View style={[styles.artworkWrapper, { backgroundColor: '#000' }]}>
             {isYoutube ? (
               <View style={styles.ytPlayerSlot} />
             ) : (
@@ -199,34 +204,34 @@ export default function GlobalPlayer() {
                   source={{ uri: snippet?.thumbnails?.high?.url }}
                   style={styles.audioAlbumArt}
                 />
-                <View style={styles.audioMusicIcon}>
-                  <Music color="#FFB300" size={40} />
+                <View style={[styles.audioMusicIcon, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+                  <Music color={theme.primary} size={40} />
                 </View>
               </View>
             )}
           </View>
 
           <View style={styles.fullInfo}>
-            <Text style={styles.fullTitle} numberOfLines={2}>{snippet?.title || 'Untitled'}</Text>
-            <Text style={styles.fullChannel}>{snippet?.channelTitle || 'Bhajan'}</Text>
+            <Text style={[styles.fullTitle, { color: theme.text }]} numberOfLines={2}>{snippet?.title || 'Untitled'}</Text>
+            <Text style={[styles.fullChannel, { color: theme.primary }]}>{snippet?.channelTitle || 'Bhajan'}</Text>
           </View>
 
-          {/* ── UP NEXT SECTION (YouTube style) ── */}
+          {/* ── UP NEXT SECTION ── */}
           <View style={styles.upNextContainer}>
             <View style={styles.upNextHeader}>
-              <Text style={styles.upNextTitle}>UP NEXT</Text>
-              <View style={styles.upNextLine} />
+              <Text style={[styles.upNextTitle, { color: theme.primary }]}>UP NEXT</Text>
+              <View style={[styles.upNextLine, { backgroundColor: theme.border }]} />
             </View>
             <Animated.ScrollView 
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.upNextList}
             >
               {queue && queue
-                .filter(item => (item?.id?.videoId || item?.audioUrl) !== (currentVideo?.id?.videoId || currentVideo?.audioUrl)) // Filter out current playing
+                .filter(item => (item?.id?.videoId || item?.audioUrl) !== (currentVideo?.id?.videoId || currentVideo?.audioUrl))
                 .map((item, index) => (
                 <TouchableOpacity 
                   key={index} 
-                  style={styles.upNextCard}
+                  style={[styles.upNextCard, { backgroundColor: theme.card, borderColor: theme.border }]}
                   onPress={() => playVideo(item, queue)}
                 >
                   <Image 
@@ -234,10 +239,10 @@ export default function GlobalPlayer() {
                     style={styles.upNextThumb}
                   />
                   <View style={styles.upNextCardInfo}>
-                    <Text style={styles.upNextCardTitle} numberOfLines={2}>
+                    <Text style={[styles.upNextCardTitle, { color: theme.text }]} numberOfLines={2}>
                       {item.snippet?.title}
                     </Text>
-                    <Text style={styles.upNextCardChannel} numberOfLines={1}>
+                    <Text style={[styles.upNextCardChannel, { color: theme.subtext }]} numberOfLines={1}>
                       {item.snippet?.channelTitle || 'Bhajan'}
                     </Text>
                   </View>
@@ -253,34 +258,29 @@ export default function GlobalPlayer() {
         style={[StyleSheet.absoluteFill, { opacity: miniOpacity }]}
         pointerEvents={isExpanded ? 'none' : 'auto'}
       >
-        {/* Poora mini player expand karta hai — sirf text/image area pe tap se */}
-        <TouchableOpacity activeOpacity={0.9} onPress={toggleExpand} style={styles.miniContainer}>
-          <BlurView intensity={80} tint="dark" style={styles.blurView}>
+        <TouchableOpacity activeOpacity={0.9} onPress={toggleExpand} style={[styles.miniContainer, { borderColor: theme.border }]}>
+          <BlurView intensity={80} tint={isDarkMode ? 'dark' : 'light'} style={styles.blurView}>
             <Image
               source={{ uri: snippet?.thumbnails?.high?.url }}
               style={styles.miniThumb}
             />
             <View style={styles.miniTextContainer}>
-              <Text style={styles.miniTitle} numberOfLines={1}>{snippet?.title || 'Untitled'}</Text>
-              <Text style={styles.miniChannel} numberOfLines={1}>{snippet?.channelTitle || 'Bhajan'}</Text>
+              <Text style={[styles.miniTitle, { color: theme.text }]} numberOfLines={1}>{snippet?.title || 'Untitled'}</Text>
+              <Text style={[styles.miniChannel, { color: theme.subtext }]} numberOfLines={1}>{snippet?.channelTitle || 'Bhajan'}</Text>
             </View>
-            {/* Play/Pause — stopPropagation se outer expand trigger nahi hoga */}
             <TouchableOpacity
               onPress={handleMiniPlayPause}
-              style={styles.miniPlayBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={[styles.miniPlayBtn, { backgroundColor: theme.primary + '15' }]}
             >
               {isPlaying
-                ? <Pause color="#FFB300" size={22} fill="#FFB300" />
-                : <Play color="#FFB300" size={22} fill="#FFB300" />}
+                ? <Pause color={theme.primary} size={22} fill={theme.primary} />
+                : <Play color={theme.primary} size={22} fill={theme.primary} />}
             </TouchableOpacity>
-            {/* Close button */}
             <TouchableOpacity
               onPress={(e) => { e.stopPropagation(); handleClose(); }}
               style={styles.miniCloseBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <X color="#9CA3AF" size={18} />
+              <X color={theme.subtext} size={18} />
             </TouchableOpacity>
           </BlurView>
         </TouchableOpacity>

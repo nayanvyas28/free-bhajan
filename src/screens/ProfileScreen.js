@@ -6,53 +6,69 @@ import {
   TextInput, 
   TouchableOpacity, 
   ScrollView, 
-  Alert,
   ActivityIndicator
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { User, LogOut, Save, ChevronLeft, Info } from 'lucide-react-native';
+import { useLanguage } from '../context/LanguageContext';
+import { useCustomAlert } from '../context/AlertContext';
+import { User, LogOut, Save, ChevronLeft, Info, ChevronRight, Palette, Sun, Moon, Monitor } from 'lucide-react-native';
 
 export default function ProfileScreen({ navigation }) {
-  const { theme } = useTheme();
+  const { theme, themeMode, setThemeMode } = useTheme();
   const { profile, signOut, updateProfile } = useAuth();
+  const { t } = useLanguage();
+  const { showAlert } = useCustomAlert();
   
   const [name, setName] = useState(profile?.full_name || '');
   const [loading, setLoading] = useState(false);
 
   const handleUpdateName = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Name cannot be empty');
+      showAlert({
+        title: t('error'),
+        message: t('nameEmpty'),
+        type: 'error'
+      });
       return;
     }
 
     setLoading(true);
     try {
       await updateProfile({ full_name: name });
-      Alert.alert('Success', 'Profile updated successfully');
+      showAlert({
+        title: t('success'),
+        message: t('profileUpdated'),
+        type: 'success'
+      });
     } catch (error) {
-      Alert.alert('Error', error.message);
+      showAlert({
+        title: t('error'),
+        message: error.message,
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
+    showAlert({
+      title: t('logout'),
+      message: t('logoutConfirm') || 'Are you sure you want to sign out?',
+      type: 'warning',
+      buttons: [
+        { text: t('cancel') || 'Cancel' },
         { 
-          text: 'Sign Out', 
+          text: t('logout'), 
           style: 'destructive', 
           onPress: async () => {
             await signOut();
-            navigation.navigate('Home');
+            navigation.replace('Main');
           } 
         }
       ]
-    );
+    });
   };
 
   return (
@@ -101,15 +117,50 @@ export default function ProfileScreen({ navigation }) {
             </>
           )}
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.menuContainer}>
+        <View style={styles.sectionHeader}>
+          <Palette size={20} color={theme.primary} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('theme')}</Text>
+        </View>
+
+        <View style={styles.themeSelector}>
+          {[
+            { id: 'system', icon: Monitor, label: t('themeSystem') },
+            { id: 'light', icon: Sun, label: t('themeLight') },
+            { id: 'dark', icon: Moon, label: t('themeDark') },
+          ].map((mode) => (
+            <TouchableOpacity
+              key={mode.id}
+              onPress={() => setThemeMode(mode.id)}
+              style={[
+                styles.themeBtn,
+                { backgroundColor: theme.card, borderColor: theme.border },
+                themeMode === mode.id && { backgroundColor: theme.primary + '15', borderColor: theme.primary }
+              ]}
+            >
+              <mode.icon size={20} color={themeMode === mode.id ? theme.primary : theme.subtext} />
+              <Text style={[
+                styles.themeBtnText, 
+                { color: themeMode === mode.id ? theme.primary : theme.subtext }
+              ]}>{mode.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <TouchableOpacity 
-          style={[styles.menuItem, { borderBottomColor: theme.border }]}
+          style={[styles.menuItem, { backgroundColor: theme.card, borderColor: theme.border }]}
           onPress={() => navigation.navigate('About')}
+          activeOpacity={0.7}
         >
           <View style={styles.menuItemLeft}>
-            <Info size={20} color={theme.primary} />
-            <Text style={[styles.menuItemText, { color: theme.text }]}>About Mantra Puja</Text>
+            <View style={[styles.menuIconBox, { backgroundColor: 'rgba(255,179,0,0.1)' }]}>
+              <Info size={20} color={theme.primary} />
+            </View>
+            <Text style={[styles.menuItemText, { color: theme.text }]}>{t('about')}</Text>
           </View>
+          <ChevronRight size={20} color={theme.subtext} />
         </TouchableOpacity>
       </View>
 
@@ -167,6 +218,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 24,
   },
+  menuContainer: {
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+    marginLeft: 4,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: 'Outfit-Bold',
+  },
+  themeSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 10,
+  },
+  themeBtn: {
+    flex: 1,
+    height: 80,
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  themeBtnText: {
+    fontSize: 12,
+    fontFamily: 'Outfit-Bold',
+  },
   icon: { marginRight: 12 },
   input: { flex: 1, fontSize: 16, fontFamily: 'Outfit-SemiBold' },
   saveBtn: {
@@ -195,17 +280,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    marginTop: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 12,
   },
   menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
+  },
+  menuIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   menuItemText: {
     fontSize: 16,
-    fontFamily: 'Outfit-Medium',
+    fontFamily: 'Outfit-Bold',
   },
 });

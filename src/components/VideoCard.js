@@ -14,7 +14,7 @@ const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
   
   // Support both YouTube API and Supabase structures
   const title = video.title || snippet.title || 'Untitled Divine Content';
-  const thumbnailUrl = video.thumbnail || snippet.thumbnails?.high?.url || snippet.thumbnails?.default?.url;
+  const thumbnailUrl = video.image_url || video.thumbnail || snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url;
   const channelTitle = video.channel_title || snippet.channelTitle || 'Bhajan App';
 
   return (

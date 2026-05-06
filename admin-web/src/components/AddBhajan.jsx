@@ -40,7 +40,10 @@ export default function AddBhajan() {
 
       if (type === 'youtube') {
         finalUrl = await fetchYoutubeDetails(formData.url);
-        finalThumb = `https://img.youtube.com/vi/${finalUrl}/maxresdefault.jpg`;
+        // Only auto-generate thumbnail if field is empty
+        if (!formData.thumbnail) {
+          finalThumb = `https://img.youtube.com/vi/${finalUrl}/maxresdefault.jpg`;
+        }
       }
 
       const { error } = await supabase.from('bhajans').insert([

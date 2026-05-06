@@ -1,7 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 
-const FAVORITES_KEY = '@bhajan_favorites';
+const BASE_FAVORITES_KEY = '@bhajan_favorites';
+
+// Helper to get dynamic key based on user
+const getFavoritesKey = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id || 'guest';
+  return `${BASE_FAVORITES_KEY}_${userId}`;
+};
 
 // Helper to get current user session
 const getCurrentUser = async () => {
@@ -12,10 +19,10 @@ const getCurrentUser = async () => {
 export const saveFavorite = async (video) => {
   try {
     const user = await getCurrentUser();
-    const videoId = video.id.videoId;
+    const key = await getFavoritesKey();
+    const videoId = video.id?.videoId || video.id;
 
     if (user) {
-      // Save to Supabase
       const { error } = await supabase
         .from('user_favorites')
         .upsert({ 
@@ -26,12 +33,11 @@ export const saveFavorite = async (video) => {
       if (error) throw error;
     }
 
-    // Always keep a local copy for speed/offline
-    const existing = await AsyncStorage.getItem(FAVORITES_KEY);
+    const existing = await AsyncStorage.getItem(key);
     const favs = existing ? JSON.parse(existing) : [];
-    if (!favs.find(f => f.id.videoId === videoId)) {
+    if (!favs.find(f => (f.id?.videoId || f.id) === videoId)) {
       favs.push(video);
-      await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(favs));
+      await AsyncStorage.setItem(key, JSON.stringify(favs));
     }
   } catch (error) {
     console.error('Error saving favorite:', error);
@@ -41,9 +47,9 @@ export const saveFavorite = async (video) => {
 export const removeFavorite = async (videoId) => {
   try {
     const user = await getCurrentUser();
+    const key = await getFavoritesKey();
 
     if (user) {
-      // Remove from Supabase
       await supabase
         .from('user_favorites')
         .delete()
@@ -51,12 +57,11 @@ export const removeFavorite = async (videoId) => {
         .eq('video_id', videoId);
     }
 
-    // Remove from Local
-    const existing = await AsyncStorage.getItem(FAVORITES_KEY);
+    const existing = await AsyncStorage.getItem(key);
     if (existing) {
       const favs = JSON.parse(existing);
-      const updatedFavs = favs.filter(f => f.id.videoId !== videoId);
-      await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(updatedFavs));
+      const updatedFavs = favs.filter(f => (f.id?.videoId || f.id) !== videoId);
+      await AsyncStorage.setItem(key, JSON.stringify(updatedFavs));
     }
   } catch (error) {
     console.error('Error removing favorite:', error);
@@ -66,9 +71,9 @@ export const removeFavorite = async (videoId) => {
 export const getFavorites = async () => {
   try {
     const user = await getCurrentUser();
+    const key = await getFavoritesKey();
 
     if (user) {
-      // Fetch from Supabase
       const { data, error } = await supabase
         .from('user_favorites')
         .select('video_data')
@@ -77,14 +82,12 @@ export const getFavorites = async () => {
       
       if (!error && data) {
         const remoteFavs = data.map(item => item.video_data);
-        // Sync to local
-        await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(remoteFavs));
+        await AsyncStorage.setItem(key, JSON.stringify(remoteFavs));
         return remoteFavs;
       }
     }
 
-    // Fallback to local
-    const data = await AsyncStorage.getItem(FAVORITES_KEY);
+    const data = await AsyncStorage.getItem(key);
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('Error getting favorites:', error);
@@ -95,7 +98,7 @@ export const getFavorites = async () => {
 export const isFavorite = async (videoId) => {
   try {
     const favs = await getFavorites();
-    return favs.some(f => f.id.videoId === videoId);
+    return favs.some(f => (f.id?.videoId || f.id) === videoId);
   } catch (error) {
     return false;
   }

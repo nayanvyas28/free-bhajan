@@ -2,13 +2,15 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useNavigation } from '@react-navigation/native';
-import { User, LogIn, Heart } from 'lucide-react-native';
+import { User, LogIn, Languages } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const Header = () => {
   const { theme } = useTheme();
   const { profile, isAuthenticated } = useAuth();
+  const { t, language, toggleLanguage } = useLanguage();
   const navigation = useNavigation();
 
   const getInitials = (name) => {
@@ -26,16 +28,19 @@ const Header = () => {
         />
         <View>
           <Text style={[styles.title, { color: theme.text }]}>Mantra Puja</Text>
-          <Text style={[styles.subtitle, { color: theme.subtext }]}>Spiritual Library</Text>
+          <Text style={[styles.subtitle, { color: theme.subtext }]}>{t('spiritualLibrary')}</Text>
         </View>
       </View>
 
       <View style={styles.actions}>
         <TouchableOpacity 
-          style={[styles.iconBtn, { backgroundColor: theme.card }]}
-          onPress={() => navigation.navigate('Favorites')}
+          style={[styles.langBtn, { backgroundColor: theme.card, borderColor: theme.primary + '33' }]}
+          onPress={toggleLanguage}
         >
-          <Heart size={20} color={theme.primary} />
+          <Languages size={18} color={theme.primary} />
+          <Text style={[styles.langText, { color: theme.primary }]}>
+            {language === 'en' ? 'हि' : 'EN'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -92,12 +97,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
+  langBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  langText: {
+    fontSize: 12,
+    fontFamily: 'Outfit-Bold',
   },
   profileCircle: {
     width: 40,

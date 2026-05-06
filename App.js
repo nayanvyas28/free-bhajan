@@ -5,11 +5,15 @@ import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { PlayerProvider } from './src/context/PlayerContext';
 import { ThemeProvider } from './src/context/ThemeContext';
+import { LanguageProvider } from './src/context/LanguageContext';
+import { AlertProvider } from './src/context/AlertContext';
 import GlobalPlayer from './src/components/GlobalPlayer';
 
 import { useFonts, Outfit_400Regular, Outfit_600SemiBold, Outfit_700Bold, Outfit_900Black } from '@expo-google-fonts/outfit';
 import * as SplashScreen from 'expo-splash-screen';
+import { LogBox } from 'react-native';
 
+LogBox.ignoreLogs(['Call to function \'ExpoKeepAwake.activate\' has been rejected']);
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
@@ -33,15 +37,17 @@ export default function App() {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <PlayerProvider>
-          <SafeAreaProvider onLayout={onLayoutRootView}>
-            <NavigationContainer>
-              <StatusBar style="auto" />
-              <AppNavigator />
-              <GlobalPlayer />
-            </NavigationContainer>
-          </SafeAreaProvider>
-        </PlayerProvider>
+        <AlertProvider>
+          <PlayerProvider>
+            <SafeAreaProvider onLayout={onLayoutRootView}>
+              <NavigationContainer>
+                <StatusBar style="auto" />
+                <AppNavigator />
+                <GlobalPlayer />
+              </NavigationContainer>
+            </SafeAreaProvider>
+          </PlayerProvider>
+        </AlertProvider>
       </LanguageProvider>
     </ThemeProvider>
   );

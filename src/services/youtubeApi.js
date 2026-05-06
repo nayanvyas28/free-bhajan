@@ -104,30 +104,131 @@ export const getSolutions = async (category = null) => {
   }
 };
 
-let _apiKeyWarnShown = false;
+const SEARCH_MAP = {
+  'shiv': ['shiv', 'shiva', 'mahadev', 'bholenath', 'शिव'],
+  'shiva': ['shiv', 'shiva', 'mahadev', 'bholenath', 'शिव'],
+  'krishna': ['krishna', 'kanha', 'shyam', 'krishn', 'कृष्ण'],
+  'shyam': ['krishna', 'kanha', 'shyam', 'krishn', 'कृष्ण'],
+  'ganesh': ['ganesh', 'ganesha', 'ganpati', 'vinayaka', 'गणे़श'],
+  'ganesha': ['ganesh', 'ganesha', 'ganpati', 'vinayaka', 'गणे़श'],
+  'hanuman': ['hanuman', 'bajrangbali', 'anjaneya', 'हनुमान'],
+  'ram': ['ram', 'rama', 'ramayan', 'सियाराम', 'राम'],
+  'laxmi': ['laxmi', 'lakshmi', 'mahalaxmi', 'लक्ष्मी'],
+  'durga': ['durga', 'ma durga', 'shakti', 'दुर्गा'],
+  'bhajan': ['bhajan', 'devotional', 'bhakti', 'भजन'],
+  'mantra': ['mantra', 'jaap', 'chant', 'मंत्र'],
+  // Hindi to English Mappings
+  'शिव': ['shiv', 'shiva', 'mahadev'],
+  'कृष्ण': ['krishna', 'kanha', 'shyam'],
+  'राम': ['ram', 'rama'],
+  'हनुमान': ['hanuman', 'bajrangbali'],
+  'गणेश': ['ganesh', 'ganesha', 'ganpati'],
+  'लक्ष्मी': ['laxmi', 'lakshmi'],
+  'दुर्गा': ['durga'],
+  'भजन': ['bhajan'],
+  'मंत्र': ['mantra']
+};
 
-export const searchBhajans = async (query = 'krishna bhajan', maxResults = 10) => {
-  try {
-    console.log('Searching YouTube:', query);
-    if (API_KEY === 'YOUR_YOUTUBE_API_KEY') {
-      if (!_apiKeyWarnShown) {
-        console.log('YouTube API Key missing. Returning MOCK data.');
-        _apiKeyWarnShown = true;
-      }
-      return MOCK_BHAJANS;
+const expandQuery = (query) => {
+  const lowQuery = query.toLowerCase().trim();
+  let terms = [lowQuery];
+  
+  // Find synonyms from map
+  for (const [key, synonyms] of Object.entries(SEARCH_MAP)) {
+    if (key === lowQuery || synonyms.includes(lowQuery)) {
+      terms = [...new Set([...terms, key, ...synonyms])];
+      break;
     }
-    const response = await axios.get(`${BASE_URL}/search`, {
-      params: {
-        part: 'snippet',
-        maxResults: maxResults,
-        q: query,
-        type: 'video',
-        key: API_KEY,
-      },
+  }
+  
+  // Basic fuzzy handling (e.g., shiv -> shiva)
+  if (lowQuery.length > 3) {
+    if (lowQuery.endsWith('a')) terms.push(lowQuery.slice(0, -1));
+    else terms.push(lowQuery + 'a');
+  }
+
+  return [...new Set(terms)];
+};
+
+export const searchBhajans = async (query = 'krishna bhajan', maxResults = 15) => {
+  try {
+    const searchTerms = expandQuery(query);
+    console.log('Smart Search Terms:', searchTerms);
+    
+    // 1. Search in local Supabase Database
+    // Build an OR query for all expanded terms
+    const orCondition = searchTerms
+      .map(term => `title.ilike.%${term}%,category.ilike.%${term}%`)
+      .join(',');
+
+    const { data: dbBhajans, error: dbError } = await supabase
+      .from('bhajans')
+      .select('*')
+      .or(orCondition)
+      .limit(15);
+
+    let formattedDbResults = [];
+    if (!dbError && dbBhajans) {
+      formattedDbResults = dbBhajans.map(item => {
+        let vId = item.url;
+        if (item.type === 'youtube' && item.url?.includes('http')) {
+          const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+          const match = item.url.match(regExp);
+          vId = (match && match[2].length === 11) ? match[2] : item.url;
+        }
+        const displayThumb = item.thumbnail || item.image_url || `https://img.youtube.com/vi/${vId}/hqdefault.jpg`;
+        return {
+          id: { videoId: item.type === 'youtube' ? vId : item.id?.toString() },
+          audioUrl: item.type === 'audio' ? item.url : null,
+          type: item.type || 'youtube',
+          image_url: displayThumb,
+          title: item.title,
+          snippet: {
+            title: item.title,
+            description: item.description,
+            thumbnails: { high: { url: displayThumb } },
+            channelTitle: item.category || 'Bhajan'
+          }
+        };
+      });
+    }
+
+    // 2. Search in YouTube API as fallback/extension
+    let ytResults = [];
+    if (API_KEY !== 'YOUR_YOUTUBE_API_KEY') {
+      try {
+        const response = await axios.get(`${BASE_URL}/search`, {
+          params: {
+            part: 'snippet',
+            maxResults: maxResults,
+            q: query,
+            type: 'video',
+            key: API_KEY,
+          },
+        });
+        ytResults = response.data.items || [];
+      } catch (err) {
+        console.log('YT API error:', err.message);
+      }
+    } else if (formattedDbResults.length === 0) {
+      ytResults = MOCK_BHAJANS.filter(b => 
+        b.snippet.title.toLowerCase().includes(query.toLowerCase())
+      );
+    }
+
+    // Combine results: Database first, then YouTube
+    // Filter duplicates by VideoId
+    const combined = [...formattedDbResults, ...ytResults];
+    const seenIds = new Set();
+    return combined.filter(item => {
+      const id = item.id?.videoId || item.audioUrl;
+      if (seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
     });
-    return response.data.items || [];
+
   } catch (error) {
-    console.log('YouTube search error:', error.message);
+    console.log('Search exception:', error.message);
     return [];
   }
 };

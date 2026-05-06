@@ -8,7 +8,8 @@ import {
   Text,
   TouchableOpacity,
   RefreshControl,
-  ScrollView
+  ScrollView,
+  Alert
 } from 'react-native';
 import { Search, X, RefreshCcw } from 'lucide-react-native';
 import { searchBhajans, getCuratedBhajans, getCategories } from '../services/youtubeApi';
@@ -18,12 +19,16 @@ import VideoCard from '../components/VideoCard';
 import Shimmer from '../components/SkeletonLoader';
 import Header from '../components/Header';
 import { usePlayer } from '../context/PlayerContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const DEFAULT_CATEGORIES = ["All", "Krishna", "Shiv", "Ram", "Ganesh", "Devi", "Hanuman"];
-const SUB_TYPES = ["All", "Bhajan", "Mantra"];
 
 export default function HomeScreen({ navigation, route }) {
   const { theme } = useTheme();
+  const { t, language } = useLanguage();
+  
+  const SUB_TYPES = ["All", "Bhajan", "Mantra"];
+  
   const [videos, setVideos] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [query, setQuery] = useState('');
@@ -81,9 +86,21 @@ export default function HomeScreen({ navigation, route }) {
   useEffect(() => {
     if (route.params?.category) {
       setActiveCategory(route.params.category);
-      loadVideos('', route.params.category, activeSubType);
+      setActiveSubType("All");
+      setQuery('');
+      loadVideos('', route.params.category, "All");
+    } else if (route.params?.searchQuery) {
+      setQuery(route.params.searchQuery);
+      setActiveCategory("All");
+      setActiveSubType("All");
+      loadVideos(route.params.searchQuery, "All", "All");
     }
-  }, [route.params?.category]);
+  }, [route.params?.category, route.params?.searchQuery]);
+
+  const clearSearch = () => {
+    setQuery('');
+    loadVideos('', activeCategory, activeSubType);
+  };
 
   const handleCategoryPress = (category) => {
     setActiveCategory(category);
@@ -117,10 +134,23 @@ export default function HomeScreen({ navigation, route }) {
   }, [query, activeCategory, activeSubType]);
 
   const toggleFavorite = async (video) => {
-    const videoId = video.id.videoId;
+    const videoId = video.id?.videoId || video.id;
     if (favIds.includes(videoId)) {
-      await removeFavorite(videoId);
-      setFavIds(favIds.filter(id => id !== videoId));
+      Alert.alert(
+        t('removeFavoriteTitle') || 'Remove Favorite',
+        t('removeFavoriteMessage') || 'Are you sure you want to remove this from your favorites?',
+        [
+          { text: t('cancel') || 'Cancel', style: 'cancel' },
+          { 
+            text: t('remove') || 'Remove', 
+            style: 'destructive',
+            onPress: async () => {
+              await removeFavorite(videoId);
+              setFavIds(favIds.filter(id => id !== videoId));
+            }
+          }
+        ]
+      );
     } else {
       await saveFavorite(video);
       setFavIds([...favIds, videoId]);
@@ -150,12 +180,12 @@ export default function HomeScreen({ navigation, route }) {
             style={[styles.searchInput, { color: theme.text }]}
             value={query}
             onChangeText={setQuery}
-            onSubmitEditing={() => loadVideos(query)}
-            placeholder="Search for divine melodies..."
+            onSubmitEditing={() => loadVideos(query, "All", "All")}
+            placeholder={t('searchPlaceholder') || "Search for divine melodies..."}
             placeholderTextColor={theme.subtext}
           />
           {query.length > 0 && (
-            <TouchableOpacity onPress={() => { setQuery(''); loadVideos('', activeCategory, activeSubType); }}>
+            <TouchableOpacity onPress={clearSearch}>
               <X size={20} color={theme.subtext} />
             </TouchableOpacity>
           )}
@@ -174,7 +204,7 @@ export default function HomeScreen({ navigation, route }) {
                 activeCategory === cat && { backgroundColor: theme.primary, borderColor: theme.primary }
               ]}
             >
-              <Text style={[styles.categoryText, { color: theme.subtext }, activeCategory === cat && { color: '#FFF' }]}>{cat}</Text>
+              <Text style={[styles.categoryText, { color: theme.subtext }, activeCategory === cat && { color: '#FFF' }]}>{t(cat)}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -190,7 +220,7 @@ export default function HomeScreen({ navigation, route }) {
                 activeSubType === type && { backgroundColor: 'rgba(255,179,0,0.1)', borderColor: theme.primary }
               ]}
             >
-              <Text style={[styles.subTypeText, { color: theme.subtext }, activeSubType === type && { color: theme.primary }]}>{type}</Text>
+              <Text style={[styles.subTypeText, { color: theme.subtext }, activeSubType === type && { color: theme.primary }]}>{t(type)}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -221,13 +251,13 @@ export default function HomeScreen({ navigation, route }) {
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={[styles.emptyText, { color: theme.subtext }]}>No content found.</Text>
+              <Text style={[styles.emptyText, { color: theme.subtext }]}>{t('noData')}</Text>
               <TouchableOpacity 
                 style={[styles.retryBtn, { backgroundColor: theme.primary }]}
                 onPress={onRefresh}
               >
                 <RefreshCcw size={18} color="#FFF" />
-                <Text style={styles.retryText}>Try Again</Text>
+                <Text style={styles.retryText}>{t('retry')}</Text>
               </TouchableOpacity>
             </View>
           }
