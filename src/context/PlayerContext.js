@@ -23,7 +23,7 @@ export const PlayerProvider = ({ children }) => {
     const normalizedVideo = {
       ...video,
       id: typeof video.id === 'object' ? video.id : { videoId: video.id },
-      type: video.type || (video.audioUrl ? 'audio' : 'youtube') // Ensure type is always set
+      type: video.type || (video.audioUrl || (typeof videoId === 'string' && videoId.length > 20) ? 'video' : 'youtube') 
     };
 
     // SET IMMEDIATELY for instant UI response

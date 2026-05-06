@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, Edit2, Loader2, Save, X, Lightbulb, Image as ImageIcon, Video, Link as LinkIcon } from 'lucide-react';
+import { Plus, Trash2, Edit2, Loader2, Save, X, Lightbulb, Image as ImageIcon, Video, Link as LinkIcon, Eye, EyeOff, Music, Database } from 'lucide-react';
+import { uploadToR2 } from '../lib/r2';
 
 export default function ManageSolutions() {
   const [solutions, setSolutions] = useState([]);
@@ -13,8 +14,14 @@ export default function ManageSolutions() {
     description: '',
     category: 'Health',
     image_url: '',
-    video_url: ''
+    url: '',
+    type: 'video',
+    is_visible: true
   });
+
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const CATEGORIES = ['Health', 'Wealth', 'Job', 'Family', 'Peace', 'Other'];
 
@@ -25,21 +32,13 @@ export default function ManageSolutions() {
   const fetchSolutions = async () => {
     try {
       setLoading(true);
-      console.log('Fetching solutions...');
       const { data, error } = await supabase
         .from('solutions')
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) {
-        console.error('Supabase Error:', error);
-        alert('Database Error: ' + error.message);
-      }
-      
-      if (data) {
-        console.log('Fetched solutions:', data);
-        setSolutions(data);
-      }
+      if (error) throw error;
+      if (data) setSolutions(data);
     } catch (err) {
       console.error('Fetch Exception:', err);
     } finally {
@@ -53,7 +52,21 @@ export default function ManageSolutions() {
     return idMatch ? idMatch[1] : url;
   };
 
-  const [addToLibrary, setAddToLibrary] = useState(false);
+  const handleManualUpload = async () => {
+    if (!selectedFile) return;
+    setUploading(true);
+    setUploadProgress(0);
+    try {
+      const publicUrl = await uploadToR2(selectedFile);
+      setUploadProgress(100);
+      setFormData({ ...formData, url: publicUrl });
+      alert(`${formData.type} uploaded successfully!`);
+    } catch (error) {
+      alert('Upload error: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -62,11 +75,9 @@ export default function ManageSolutions() {
     try {
       let finalData = { ...formData };
       
-      // If video_url is provided, ensure it's just the ID
-      if (finalData.video_url) {
-        const videoId = fetchYoutubeDetails(finalData.video_url);
-        finalData.video_url = videoId;
-        // If image_url is empty, use YouTube thumbnail
+      if (formData.type === 'video' && formData.url.includes('youtube.com')) {
+        const videoId = fetchYoutubeDetails(formData.url);
+        finalData.url = videoId;
         if (!finalData.image_url) {
           finalData.image_url = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
         }
@@ -80,36 +91,17 @@ export default function ManageSolutions() {
         if (error) throw error;
         alert('Updated successfully!');
       } else {
-        // Insert into solutions
         const { error } = await supabase
           .from('solutions')
           .insert([finalData]);
         if (error) throw error;
-
-        // Optionally insert into library (bhajans table)
-        if (addToLibrary) {
-          const bhajanData = {
-            title: finalData.title,
-            description: finalData.description,
-            type: 'youtube',
-            url: finalData.video_url,
-            thumbnail: finalData.image_url,
-            category: finalData.category,
-            sub_type: 'Mantra'
-          };
-          const { error: bhajanError } = await supabase
-            .from('bhajans')
-            .insert([bhajanData]);
-          if (bhajanError) console.error('Error adding to library:', bhajanError);
-        }
-
         alert('Added successfully!');
       }
       
-      setFormData({ title: '', description: '', category: 'Health', image_url: '', video_url: '' });
+      setFormData({ title: '', description: '', category: 'Health', image_url: '', url: '', type: 'video', is_visible: true });
       setEditingId(null);
       setShowAddForm(false);
-      setAddToLibrary(false);
+      setSelectedFile(null);
       fetchSolutions();
     } catch (error) {
       alert(error.message);
@@ -119,14 +111,16 @@ export default function ManageSolutions() {
   };
 
   const handleEdit = (item) => {
+    setEditingId(item.id);
     setFormData({
       title: item.title,
       description: item.description,
       category: item.category,
       image_url: item.image_url || '',
-      video_url: item.video_url || ''
+      url: item.url || '',
+      type: item.type || 'video',
+      is_visible: item.is_visible !== false
     });
-    setEditingId(item.id);
     setShowAddForm(true);
   };
 
@@ -134,6 +128,18 @@ export default function ManageSolutions() {
     if (!window.confirm('Delete this solution?')) return;
     const { error } = await supabase.from('solutions').delete().eq('id', id);
     if (!error) fetchSolutions();
+  };
+
+  const toggleVisibility = async (item) => {
+    const newStatus = item.is_visible === false ? true : false;
+    const { error } = await supabase
+      .from('solutions')
+      .update({ is_visible: newStatus })
+      .eq('id', item.id);
+    
+    if (!error) {
+      setSolutions(solutions.map(s => s.id === item.id ? { ...s, is_visible: newStatus } : s));
+    }
   };
 
   return (
@@ -148,7 +154,8 @@ export default function ManageSolutions() {
             setShowAddForm(!showAddForm);
             if (showAddForm) { 
               setEditingId(null); 
-              setFormData({ title: '', description: '', category: 'Health', image_url: '', video_url: '' }); 
+              setFormData({ title: '', description: '', category: 'Health', image_url: '', url: '', type: 'video', is_visible: true });
+              setSelectedFile(null);
             }
           }}
           className="flex items-center gap-2 bg-amber-500 text-white px-6 py-3 rounded-2xl font-black shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95 transition-all"
@@ -161,57 +168,119 @@ export default function ManageSolutions() {
       {showAddForm && (
         <div className="bg-[#1E293B] rounded-3xl p-8 border border-slate-800 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-500 uppercase ml-1">Title</label>
-                <input 
-                  required
-                  className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-amber-500 outline-none transition-all font-bold"
-                  value={formData.title}
-                  onChange={e => setFormData({...formData, title: e.target.value})}
-                />
+            <div className="bg-[#0F172A] p-6 rounded-3xl border border-slate-800 space-y-6">
+              <div className="flex items-center gap-4">
+                {[
+                  { id: 'video', label: 'Video Upaye', icon: Video },
+                  { id: 'audio', label: 'Audio Upaye', icon: Music },
+                  { id: 'text', label: 'Text Upaye', icon: Lightbulb }
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, type: t.id, url: '' })}
+                    className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm transition-all border ${formData.type === t.id ? 'bg-amber-500 border-amber-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300'}`}
+                  >
+                    <t.icon size={18} />
+                    {t.label}
+                  </button>
+                ))}
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-500 uppercase ml-1">Category</label>
-                <select 
-                  className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-amber-500 outline-none appearance-none font-bold"
-                  value={formData.category}
-                  onChange={e => setFormData({...formData, category: e.target.value})}
-                >
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-500 uppercase ml-1">Video URL (YouTube)</label>
-                <div className="relative">
+              {formData.type !== 'text' && (
+                <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+                      <Database size={24} />
+                    </div>
+                    <div>
+                      <p className="text-white font-bold text-sm">Cloud Hosting (Cloudflare R2)</p>
+                      <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest">Securely host your {formData.type} directly</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-black transition-all ${uploading ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-600 text-white cursor-pointer'}`}>
+                      {uploading ? <><Loader2 size={16} className="animate-spin" /> Uploading...</> : selectedFile ? `Selected: ${selectedFile.name.substring(0, 10)}...` : 'Select File'}
+                      {!uploading && (
+                        <input 
+                          type="file" 
+                          accept={formData.type === 'video' ? "video/*" : "audio/*"} 
+                          className="hidden" 
+                          onChange={(e) => setSelectedFile(e.target.files[0])} 
+                        />
+                      )}
+                    </label>
+                    {selectedFile && !uploading && !formData.url && (
+                      <button
+                        type="button"
+                        onClick={handleManualUpload}
+                        className="p-2 bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all"
+                      >
+                        <Database size={20} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {uploading && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    <span>Uploading...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-500 uppercase ml-1">Title</label>
                   <input 
-                    className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl pl-12 pr-6 py-4 text-white focus:border-amber-500 outline-none transition-all font-bold"
-                    placeholder="Paste YouTube link..."
-                    value={formData.video_url}
-                    onChange={e => setFormData({...formData, video_url: e.target.value})}
+                    required
+                    className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-amber-500 outline-none transition-all font-bold"
+                    value={formData.title}
+                    onChange={e => setFormData({...formData, title: e.target.value})}
                   />
-                  <Video size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-500 uppercase ml-1">Category</label>
+                  <select 
+                    className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-amber-500 outline-none appearance-none font-bold"
+                    value={formData.category}
+                    onChange={e => setFormData({...formData, category: e.target.value})}
+                  >
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-500 uppercase ml-1">Image URL (Optional)</label>
-                <div className="relative">
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-500 uppercase ml-1">{formData.type === 'video' ? 'YouTube / Cloud URL' : 'Audio URL'}</label>
                   <input 
-                    className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl pl-12 pr-6 py-4 text-white focus:border-amber-500 outline-none transition-all font-bold"
-                    placeholder="Auto-fetched from YT if empty"
+                    className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-amber-500 outline-none transition-all font-bold"
+                    placeholder="Enter URL..."
+                    value={formData.url}
+                    onChange={e => setFormData({...formData, url: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-500 uppercase ml-1">Thumbnail URL</label>
+                  <input 
+                    className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-amber-500 outline-none transition-all font-bold"
+                    placeholder="Optional"
                     value={formData.image_url}
                     onChange={e => setFormData({...formData, image_url: e.target.value})}
                   />
-                  <ImageIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
                 </div>
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-500 uppercase ml-1">Description / Content</label>
+              <label className="text-xs font-black text-slate-500 uppercase ml-1">Upaye Description</label>
               <textarea 
                 required
                 rows={4}
@@ -221,14 +290,18 @@ export default function ManageSolutions() {
               />
             </div>
 
-            <div className="flex items-center gap-3 bg-[#0F172A] p-4 rounded-2xl border border-slate-800 hover:border-amber-500/30 transition-all cursor-pointer" onClick={() => setAddToLibrary(!addToLibrary)}>
-              <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${addToLibrary ? 'bg-amber-500 shadow-lg shadow-amber-500/30' : 'bg-slate-800'}`}>
-                {addToLibrary && <Plus size={16} className="text-white" />}
+            <div className="flex items-center justify-between p-5 bg-[#0F172A] border border-slate-800 rounded-2xl">
+              <div>
+                <p className="text-white font-bold text-sm">App Visibility</p>
+                <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest mt-0.5">Show this solution to users</p>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-black text-white">Also add to Mantra Library</p>
-                <p className="text-[10px] text-slate-500 font-bold uppercase">This will also show up in the main library</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, is_visible: !formData.is_visible })}
+                className={`flex items-center gap-3 px-6 py-3 rounded-xl text-sm font-black transition-all ${formData.is_visible ? 'bg-emerald-500 shadow-lg shadow-emerald-500/20 text-white' : 'bg-slate-700 text-slate-400'}`}
+              >
+                {formData.is_visible ? <><Eye size={18} /> Visible</> : <><EyeOff size={18} /> Hidden</>}
+              </button>
             </div>
 
             <button 
@@ -262,15 +335,26 @@ export default function ManageSolutions() {
                   <button onClick={() => handleDelete(item.id)} className="p-2 bg-slate-800 text-slate-400 hover:text-red-400 rounded-xl">
                     <Trash2 size={16} />
                   </button>
+                  <button 
+                    onClick={() => toggleVisibility(item)}
+                    className={`p-2 rounded-xl border transition-all ${item.is_visible !== false ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white' : 'bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white'}`}
+                  >
+                    {item.is_visible !== false ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
                 </div>
               </div>
               
               {item.image_url && (
                 <div className="relative w-full h-40 mb-4 rounded-2xl overflow-hidden">
                   <img src={item.image_url} alt={item.title} className="w-full h-full object-cover" />
-                  {item.video_url && (
+                  {item.url && (item.type === 'video') && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                       <Video size={32} className="text-white" />
+                    </div>
+                  )}
+                  {item.url && (item.type === 'audio') && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <Music size={32} className="text-white" />
                     </div>
                   )}
                 </div>
@@ -280,10 +364,10 @@ export default function ManageSolutions() {
               <p className="text-slate-400 text-sm line-clamp-3 mb-6 flex-1">{item.description}</p>
               
               <div className="flex items-center gap-3 text-slate-500">
-                <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center">
-                  {item.video_url ? <Video size={20} /> : <Lightbulb size={20} />}
+                <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center">
+                  {item.type === 'video' ? <Video size={20} /> : item.type === 'audio' ? <Music size={20} /> : <Lightbulb size={20} />}
                 </div>
-                <span className="text-xs font-bold">{item.video_url ? 'Video Upaye' : 'Divine Guidance'}</span>
+                <span className="text-xs font-bold capitalize">{item.type || 'Text'} Upaye</span>
               </div>
             </div>
           ))}

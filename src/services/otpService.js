@@ -20,30 +20,22 @@ export const sendWhatsAppOtp = async (phone, otp) => {
   const cleanPhone = normalizePhone(phone);
   const template = 'service_rejected_hindi';
   
-  // Constructing URL exactly as in the working mantrapujaAll project
   const url = `${BASE_URL}?user=${BHASH_USER}&pass=${BHASH_PASS}&sender=${BHASH_SENDER}&phone=${cleanPhone}&text=${template}&priority=wa&stype=normal&Params=${otp},OTP`;
 
-  console.log('[OTP] Sending via WhatsApp. URL:', url.replace(BHASH_PASS, '******'));
+  console.log('[OTP] Sending via WhatsApp. (HTTPS Attempt)');
 
   try {
-    // 1. Try standard fetch (legacy APIs often like this better than axios)
-    // We don't wait for the response to be 'ok' because these APIs often return 200 with error text
-    const response = await fetch(url, {
-      method: 'GET',
-      mode: 'no-cors',
-      cache: 'no-cache',
-    });
+    const response = await axios.get(url);
+    console.log('[OTP] API Response:', response.data);
     
-    // In React Native, fetch response might not have 'text()' if no-cors is used or headers are weird
-    // So we just log the status
-    console.log('[OTP] Fetch Status:', response.status);
+    if (response.data && response.data.includes('ERR')) {
+      throw new Error(`API Error: ${response.data}`);
+    }
     
-    // 2. Proactive Fallback: Sometimes fetch is blocked by ISP/DNS, but image requests pass through
-    // In React Native, we can't use 'new Image()', but we can pre-fetch or just rely on the first fetch
-    
-    return "OTP Dispatch Attempted";
+    return response.data;
   } catch (error) {
-    console.error('[OTP] Fetch Error:', error.message);
-    throw new Error('WhatsApp failed. Check console for OTP.');
+    console.error('[OTP] Production Dispatch Error:', error.message);
+    // In production, we should probably still allow a fallback or show a clear error
+    throw new Error('Failed to send WhatsApp OTP. Please check your internet or try again later.');
   }
 };

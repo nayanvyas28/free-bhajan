@@ -30,7 +30,7 @@ const MOCK_BHAJANS = [
 export const getCuratedBhajans = async (category = null, type = null, subType = null) => {
   try {
     console.log('Fetching Curated:', { category, type, subType });
-    let query = supabase.from('bhajans').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('bhajans').select('*').or('is_visible.is.null,is_visible.eq.true').order('created_at', { ascending: false });
     
     if (category) query = query.eq('category', category);
     if (type) query = query.eq('type', type);
@@ -45,21 +45,26 @@ export const getCuratedBhajans = async (category = null, type = null, subType = 
     if (!data || data.length === 0) return [];
 
     return data.map(item => {
-      let vId = item.url;
-      if (item.type === 'youtube' && item.url?.includes('http')) {
+      const rawUrl = item.url ? item.url.trim() : '';
+      let vId = rawUrl;
+      
+      // Better YouTube ID extraction
+      if ((item.type === 'youtube' || !item.type) && rawUrl.includes('http')) {
         const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-        const match = item.url.match(regExp);
-        vId = (match && match[2].length === 11) ? match[2] : item.url;
+        const match = rawUrl.match(regExp);
+        vId = (match && match[2].length === 11) ? match[2] : rawUrl;
       }
 
-      const displayThumb = item.thumbnail || item.image_url || `https://img.youtube.com/vi/${vId}/hqdefault.jpg`;
+      const displayThumb = item.thumbnail || item.image_url || (vId.length === 11 ? `https://img.youtube.com/vi/${vId}/hqdefault.jpg` : null);
 
       return {
-        id: { videoId: item.type === 'youtube' ? vId : item.id?.toString() },
-        audioUrl: item.type === 'audio' ? item.url : null,
-        type: item.type || 'youtube',
-        thumbnail: displayThumb, // Add top level thumbnail
-        title: item.title, // Add top level title
+        id: { videoId: (item.type === 'youtube' || !item.type) ? (vId.length === 11 ? vId : rawUrl) : item.id?.toString() },
+        audioUrl: (item.type === 'audio' || item.type === 'video') ? rawUrl : null,
+        url: rawUrl,
+        type: item.type || (rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be') ? 'youtube' : 'video'),
+        thumbnail: displayThumb,
+        title: item.title,
+        duration: item.duration || 0,
         subType: item.sub_type || 'Bhajan',
         snippet: {
           title: item.title,
@@ -81,7 +86,7 @@ export const getCuratedBhajans = async (category = null, type = null, subType = 
 
 export const getCategories = async () => {
   try {
-    const { data, error } = await supabase.from('categories').select('*').order('name');
+    const { data, error } = await supabase.from('categories').select('*').or('is_visible.is.null,is_visible.eq.true').order('name');
     if (error) {
       console.error('Categories Error:', error);
       return [];
@@ -92,14 +97,16 @@ export const getCategories = async () => {
   }
 };
 
-export const getSolutions = async (category = null) => {
+export const getSolutions = async (category = null, type = null) => {
   try {
-    let query = supabase.from('solutions').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('solutions').select('*').or('is_visible.is.null,is_visible.eq.true').order('created_at', { ascending: false });
     if (category) query = query.eq('category', category);
+    if (type) query = query.eq('type', type);
     const { data, error } = await query;
     if (error) throw error;
     return data || [];
   } catch (error) {
+    console.error('Solutions Error:', error);
     return [];
   }
 };
@@ -164,23 +171,29 @@ export const searchBhajans = async (query = 'krishna bhajan', maxResults = 15) =
     const { data: dbBhajans, error: dbError } = await supabase
       .from('bhajans')
       .select('*')
+      .not('is_visible', 'eq', false)
       .or(orCondition)
       .limit(15);
 
     let formattedDbResults = [];
     if (!dbError && dbBhajans) {
       formattedDbResults = dbBhajans.map(item => {
-        let vId = item.url;
-        if (item.type === 'youtube' && item.url?.includes('http')) {
+        const rawUrl = item.url ? item.url.trim() : '';
+        let vId = rawUrl;
+        
+        if ((item.type === 'youtube' || !item.type) && rawUrl.includes('http')) {
           const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-          const match = item.url.match(regExp);
-          vId = (match && match[2].length === 11) ? match[2] : item.url;
+          const match = rawUrl.match(regExp);
+          vId = (match && match[2].length === 11) ? match[2] : rawUrl;
         }
-        const displayThumb = item.thumbnail || item.image_url || `https://img.youtube.com/vi/${vId}/hqdefault.jpg`;
+
+        const displayThumb = item.thumbnail || item.image_url || (vId.length === 11 ? `https://img.youtube.com/vi/${vId}/hqdefault.jpg` : null);
+
         return {
-          id: { videoId: item.type === 'youtube' ? vId : item.id?.toString() },
-          audioUrl: item.type === 'audio' ? item.url : null,
-          type: item.type || 'youtube',
+          id: { videoId: (item.type === 'youtube' || !item.type) ? (vId.length === 11 ? vId : rawUrl) : item.id?.toString() },
+          audioUrl: (item.type === 'audio' || item.type === 'video') ? rawUrl : null,
+          url: rawUrl,
+          type: item.type || (rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be') ? 'youtube' : 'video'),
           image_url: displayThumb,
           title: item.title,
           snippet: {

@@ -24,9 +24,22 @@ export default function LoginScreen({ navigation }) {
   const [name, setName] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState(1); // 1: Phone, 2: OTP
+  const [isExistingUser, setIsExistingUser] = useState(false);
+  const [showNameField, setShowNameField] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [timer, setTimer] = useState(0);
+  const { checkUserExists } = useAuth();
 
-  const handleSendOtp = async () => {
+  // Handle countdown timer
+  React.useEffect(() => {
+    let interval;
+    if (timer > 0) {
+      interval = setInterval(() => setTimer(t => t - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timer]);
+
+  const handleNext = async () => {
     if (phone.length < 10) {
       showAlert({
         title: 'Invalid Phone',
@@ -35,6 +48,30 @@ export default function LoginScreen({ navigation }) {
       });
       return;
     }
+
+    setLoading(true);
+    try {
+      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+      const existingUser = await checkUserExists(formattedPhone);
+      
+      if (existingUser) {
+        setIsExistingUser(true);
+        setName(existingUser.full_name);
+        await startWhatsAppLogin(formattedPhone);
+        setTimer(60);
+        setStep(2);
+      } else {
+        setIsExistingUser(false);
+        setShowNameField(true);
+      }
+    } catch (error) {
+      showAlert({ title: 'Error', message: error.message, type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendOtp = async () => {
     if (!name) {
       showAlert({
         title: 'Name Required',
@@ -48,6 +85,7 @@ export default function LoginScreen({ navigation }) {
     try {
       const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
       await startWhatsAppLogin(formattedPhone);
+      setTimer(60);
       setStep(2);
     } catch (error) {
       showAlert({
@@ -103,7 +141,7 @@ export default function LoginScreen({ navigation }) {
         </Text>
         <Text style={[styles.subtitle, { color: theme.subtext }]}>
           {step === 1 
-            ? 'Sign in via WhatsApp OTP' 
+            ? (showNameField ? 'Create your profile' : 'Sign in via WhatsApp OTP')
             : `Enter the code sent to +91 ${phone}`}
         </Text>
       </View>
@@ -111,17 +149,6 @@ export default function LoginScreen({ navigation }) {
       <View style={styles.form}>
         {step === 1 ? (
           <>
-            <View style={[styles.inputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <User size={20} color={theme.primary} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, { color: theme.text }]}
-                placeholder="Your Name"
-                placeholderTextColor={theme.subtext}
-                value={name}
-                onChangeText={setName}
-              />
-            </View>
-
             <View style={[styles.inputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <Phone size={20} color={theme.primary} style={styles.inputIcon} />
               <View style={styles.prefixWrapper}>
@@ -135,20 +162,40 @@ export default function LoginScreen({ navigation }) {
                 keyboardType="phone-pad"
                 maxLength={10}
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={(val) => {
+                  setPhone(val);
+                  if (showNameField) setShowNameField(false);
+                }}
+                disabled={loading}
               />
             </View>
 
+            {showNameField && (
+              <View style={[styles.inputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                <User size={20} color={theme.primary} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: theme.text }]}
+                  placeholder="Your Name"
+                  placeholderTextColor={theme.subtext}
+                  value={name}
+                  onChangeText={setName}
+                  autoFocus
+                />
+              </View>
+            )}
+
             <TouchableOpacity 
               style={[styles.button, { backgroundColor: theme.primary }]}
-              onPress={handleSendOtp}
+              onPress={showNameField ? handleSendOtp : handleNext}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
                 <>
-                  <Text style={styles.buttonText}>Get WhatsApp OTP</Text>
+                  <Text style={styles.buttonText}>
+                    {showNameField ? 'Get WhatsApp OTP' : 'Next'}
+                  </Text>
                   <ArrowRight size={20} color="#FFF" />
                 </>
               )}
@@ -186,10 +233,23 @@ export default function LoginScreen({ navigation }) {
 
             <TouchableOpacity 
               style={styles.resendBtn}
-              onPress={() => setStep(1)}
+              onPress={handleSendOtp}
+              disabled={loading || timer > 0}
+            >
+              <Text style={[styles.resendText, { color: timer > 0 ? theme.subtext : theme.primary }]}>
+                {timer > 0 ? `Resend OTP in ${timer}s` : 'Resend OTP'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.changePhoneBtn}
+              onPress={() => {
+                setStep(1);
+                setShowNameField(false);
+              }}
               disabled={loading}
             >
-              <Text style={[styles.resendText, { color: theme.primary }]}>Change Phone Number</Text>
+              <Text style={[styles.changePhoneText, { color: theme.subtext }]}>Change Phone Number</Text>
             </TouchableOpacity>
           </>
         )}
@@ -245,6 +305,8 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
   buttonText: { color: '#FFF', fontSize: 18, fontFamily: 'Outfit-Bold' },
-  resendBtn: { marginTop: 16, alignItems: 'center' },
-  resendText: { fontSize: 14, fontFamily: 'Outfit-Bold' },
+  resendBtn: { marginTop: 10, alignItems: 'center' },
+  resendText: { fontSize: 15, fontFamily: 'Outfit-Bold' },
+  changePhoneBtn: { marginTop: 15, alignItems: 'center' },
+  changePhoneText: { fontSize: 14, fontFamily: 'Outfit-Medium', textDecorationLine: 'underline' },
 });

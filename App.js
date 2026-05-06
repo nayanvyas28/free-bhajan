@@ -14,7 +14,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { LogBox } from 'react-native';
 
 LogBox.ignoreLogs(['Call to function \'ExpoKeepAwake.activate\' has been rejected']);
-SplashScreen.preventAutoHideAsync();
+// SplashScreen.preventAutoHideAsync();
+console.log("App: JS Engine started");
 
 export default function App() {
   const [fontsLoaded] = useFonts({

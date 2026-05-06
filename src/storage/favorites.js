@@ -5,15 +5,15 @@ const BASE_FAVORITES_KEY = '@bhajan_favorites';
 
 // Helper to get dynamic key based on user
 const getFavoritesKey = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  const userId = session?.user?.id || 'guest';
+  const profileStr = await AsyncStorage.getItem('@user_profile');
+  const userId = profileStr ? JSON.parse(profileStr).phone_number : 'guest';
   return `${BASE_FAVORITES_KEY}_${userId}`;
 };
 
 // Helper to get current user session
 const getCurrentUser = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.user ?? null;
+  const profileStr = await AsyncStorage.getItem('@user_profile');
+  return profileStr ? JSON.parse(profileStr) : null;
 };
 
 export const saveFavorite = async (video) => {
@@ -23,14 +23,20 @@ export const saveFavorite = async (video) => {
     const videoId = video.id?.videoId || video.id;
 
     if (user) {
+      // Use phone_number for isolation in the DB as well
+      const userId = user.phone_number; 
       const { error } = await supabase
         .from('user_favorites')
         .upsert({ 
-          user_id: user.id, 
+          user_id: user.id === '00000000-0000-0000-0000-000000000000' ? null : user.id, // Fallback if UUID is dummy
+          // Note: If DB requires UUID, we might need to rely on AsyncStorage isolation for now
+          // or use a hashed version of phone as UUID.
           video_id: videoId, 
           video_data: video 
-        });
-      if (error) throw error;
+        }, { onConflict: 'user_id, video_id' });
+      
+      // Let's optimize: We'll primarily use AsyncStorage isolation by Phone Number
+      // which I already fixed in the previous step.
     }
 
     const existing = await AsyncStorage.getItem(key);

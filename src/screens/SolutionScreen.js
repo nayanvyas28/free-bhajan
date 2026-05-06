@@ -4,7 +4,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import Header from '../components/Header';
 import { getSolutions, getCategories } from '../services/youtubeApi';
-import { Lightbulb, PlayCircle } from 'lucide-react-native';
+import { Lightbulb, PlayCircle, Video, Music } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 
 const DEFAULT_CATS = ['All', 'Health', 'Wealth', 'Job', 'Family', 'Peace', 'Mangal Dosh', 'Shani Dosh', 'Rahu Dosh', 'Kaal Sarp'];
@@ -18,6 +18,7 @@ export default function SolutionScreen() {
   const [categories, setCategories] = useState(DEFAULT_CATS);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
+  const [activeType, setActiveType] = useState('video'); // 'video' or 'audio'
   const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
@@ -26,7 +27,7 @@ export default function SolutionScreen() {
 
   useEffect(() => {
     loadSolutions();
-  }, [activeCategory]);
+  }, [activeCategory, activeType]);
 
   const fetchCategories = async () => {
     try {
@@ -44,17 +45,19 @@ export default function SolutionScreen() {
   const loadSolutions = async () => {
     setLoading(true);
     const cat = activeCategory === 'All' ? null : activeCategory;
-    const data = await getSolutions(cat);
+    const data = await getSolutions(cat, activeType);
     setSolutions(data);
     setLoading(false);
   };
 
   const handleSolutionPress = (item) => {
-    if (item.video_url) {
+    const finalUrl = item.url || item.video_url;
+    if (finalUrl) {
       playVideo({
-        id: item.video_url,
+        id: finalUrl,
         title: item.title || 'Spiritual Solution',
-        thumbnail: item.image_url
+        thumbnail: item.image_url,
+        type: item.type || 'video'
       });
     }
   };
@@ -106,13 +109,15 @@ export default function SolutionScreen() {
           </View>
         </View>
         
-        {item.video_url && (
+        {(item.url || item.video_url) && (
           <TouchableOpacity 
             style={[styles.videoBtn, { backgroundColor: theme.primary + '10' }]}
             onPress={() => handleSolutionPress(item)}
           >
             <PlayCircle size={16} color={theme.primary} />
-            <Text style={[styles.videoBtnText, { color: theme.primary }]}>{t('watchVideo')}</Text>
+            <Text style={[styles.videoBtnText, { color: theme.primary }]}>
+              {item.type === 'audio' ? 'Play Audio Upaye' : t('watchVideo')}
+            </Text>
           </TouchableOpacity>
         )}
       </TouchableOpacity>
@@ -122,6 +127,31 @@ export default function SolutionScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Header title={t('solutionTitle') || 'Spiritual Solutions'} />
+      
+      <View style={styles.typeTabs}>
+        {[
+          { id: 'video', label: 'Video Upaye', icon: Video },
+          { id: 'audio', label: 'Audio Upaye', icon: Music }
+        ].map(tab => (
+          <TouchableOpacity
+            key={tab.id}
+            onPress={() => {
+              setActiveType(tab.id);
+              setExpandedId(null);
+            }}
+            style={[
+              styles.typeTab,
+              activeType === tab.id && { borderBottomColor: theme.primary, borderBottomWidth: 3 }
+            ]}
+          >
+            <Text style={[
+              styles.typeTabText,
+              { color: theme.subtext },
+              activeType === tab.id && { color: theme.primary, fontFamily: 'Outfit-Black' }
+            ]}>{tab.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       
       <View style={styles.catWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catContent}>
@@ -166,6 +196,9 @@ export default function SolutionScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  typeTabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  typeTab: { flex: 1, paddingVertical: 15, alignItems: 'center' },
+  typeTabText: { fontSize: 14, fontFamily: 'Outfit-Bold', letterSpacing: 0.5 },
   catWrapper: { paddingVertical: 12 },
   catContent: { paddingHorizontal: 20, gap: 10 },
   catChip: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },

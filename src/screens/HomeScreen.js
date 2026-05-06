@@ -66,7 +66,7 @@ export default function HomeScreen({ navigation, route }) {
       } else {
         const categoryParam = category === "All" ? null : category;
         const subTypeParam = subType === "All" ? null : subType;
-        data = await getCuratedBhajans(categoryParam, 'youtube', subTypeParam);
+        data = await getCuratedBhajans(categoryParam, null, subTypeParam);
         // Fallback search removed - we want to show empty if no database data exists
       }
     } catch (err) {

@@ -27,6 +27,22 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   };
 
+  const checkUserExists = async (phoneNumber) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('phone_number', phoneNumber)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is not found
+      return data;
+    } catch (error) {
+      console.error('[AUTH] Check User Error:', error.message);
+      return null;
+    }
+  };
+
   const startWhatsAppLogin = async (phoneNumber) => {
     console.log('[AUTH] Initiating login for:', phoneNumber);
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -51,25 +67,67 @@ export const AuthProvider = ({ children }) => {
   const verifyWhatsAppLogin = async (phoneNumber, inputOtp, fullName) => {
     console.log(`[AUTH] Verifying OTP for ${phoneNumber}. Expected: ${generatedOtp}, Input: ${inputOtp}`);
     
-    if (inputOtp !== generatedOtp && inputOtp !== '123456') {
+    const isDev = __DEV__;
+    const isMasterOtp = inputOtp === '123456';
+    
+    if (inputOtp !== generatedOtp && !(isDev && isMasterOtp)) {
       console.error('[AUTH] Verification Failed: Code mismatch');
-      throw new Error('Invalid OTP code.');
+      throw new Error(isDev ? 'Invalid OTP. Use 123456 for testing.' : 'Invalid OTP code. Please try again.');
     }
 
-    const profileData = {
-      id: '00000000-0000-0000-0000-000000000000',
-      full_name: fullName,
-      phone_number: phoneNumber,
-      updated_at: new Date()
-    };
-    
-    setProfile(profileData);
-    setUser({ id: profileData.id });
-    await AsyncStorage.setItem('@user_profile', JSON.stringify(profileData));
-    
-    setGeneratedOtp(null);
-    console.log('[AUTH] Login Successful');
-    return true;
+    try {
+      // 1. Check if profile exists
+      let { data: existingProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('phone_number', phoneNumber)
+        .single();
+
+      let finalProfile;
+
+      if (existingProfile) {
+        console.log('[AUTH] Existing user found:', existingProfile.full_name);
+        finalProfile = existingProfile;
+      } else {
+        console.log('[AUTH] Creating new profile for:', phoneNumber);
+        
+        // Since we don't have Supabase Auth, we'll store profile data
+        // For production, you'd want a real backend to handle this
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert([
+            { 
+              full_name: fullName, 
+              phone_number: phoneNumber 
+            }
+          ])
+          .select()
+          .single();
+
+        if (insertError) {
+          console.warn('[AUTH] DB Profile Insert failed (expected if no Auth session):', insertError.message);
+          finalProfile = {
+            id: phoneNumber,
+            full_name: fullName,
+            phone_number: phoneNumber,
+            updated_at: new Date()
+          };
+        } else {
+          finalProfile = newProfile;
+        }
+      }
+      
+      setProfile(finalProfile);
+      setUser({ id: finalProfile.id });
+      await AsyncStorage.setItem('@user_profile', JSON.stringify(finalProfile));
+      
+      setGeneratedOtp(null);
+      console.log('[AUTH] Login Successful for ID:', finalProfile.id);
+      return true;
+    } catch (err) {
+      console.error('[AUTH] Profile Sync Error:', err.message);
+      throw err;
+    }
   };
 
   const updateProfile = async (updates) => {
@@ -102,6 +160,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         startWhatsAppLogin,
         verifyWhatsAppLogin,
+        checkUserExists,
         updateProfile,
         signOut,
         isAuthenticated: !!profile

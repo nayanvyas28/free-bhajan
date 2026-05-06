@@ -4,11 +4,11 @@
     "slug": "bhajan-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/mantrapuja_logo.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": false,
     "splash": {
-      "image": "./assets/logo.png",
+      "image": "./assets/mantrapuja_logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#0F0F13"
     },
@@ -17,14 +17,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo.png",
+        "foregroundImage": "./assets/mantrapuja_logo.png",
         "backgroundColor": "#0F0F13"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.bhajanapp"
     },
     "web": {
-      "favicon": "./assets/logo.png"
+      "favicon": "./assets/mantrapuja_logo.png"
     }
   }
 }

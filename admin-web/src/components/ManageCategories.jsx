@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, Edit2, Loader2, Save, X, Flower2, Image as ImageIcon, Stars } from 'lucide-react';
+import { Plus, Trash2, Edit2, Loader2, Save, X, Flower2, Image as ImageIcon, Stars, Eye, EyeOff } from 'lucide-react';
 
 export default function ManageCategories() {
   const [categories, setCategories] = useState([]);
@@ -11,7 +11,8 @@ export default function ManageCategories() {
   const [formData, setFormData] = useState({
     name: '',
     image_url: '',
-    type: 'deity'
+    type: 'deity',
+    is_visible: true
   });
 
   useEffect(() => {
@@ -65,7 +66,8 @@ export default function ManageCategories() {
     setFormData({
       name: item.name,
       image_url: item.image_url,
-      type: item.type || 'deity'
+      type: item.type || 'deity',
+      is_visible: item.is_visible !== false
     });
     setEditingId(item.id);
     setShowAddForm(true);
@@ -76,6 +78,18 @@ export default function ManageCategories() {
     if (!window.confirm('Are you sure? Removing this category will not delete bhajans, but they will lose their category tag.')) return;
     const { error } = await supabase.from('categories').delete().eq('id', id);
     if (!error) fetchCategories();
+  };
+
+  const toggleVisibility = async (item) => {
+    const newStatus = item.is_visible === false ? true : false;
+    const { error } = await supabase
+      .from('categories')
+      .update({ is_visible: newStatus })
+      .eq('id', item.id);
+    
+    if (!error) {
+      setCategories(categories.map(c => c.id === item.id ? { ...c, is_visible: newStatus } : c));
+    }
   };
 
   return (
@@ -125,6 +139,22 @@ export default function ManageCategories() {
                       <option value="deity">Bhagwan (Deity)</option>
                       <option value="dosh">Kundli Dosh</option>
                     </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">App Visibility</label>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, is_visible: !formData.is_visible })}
+                      className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl font-black transition-all border ${formData.is_visible ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}
+                    >
+                      <div className="flex items-center gap-2 text-sm">
+                        {formData.is_visible ? <Eye size={20} /> : <EyeOff size={20} />}
+                        {formData.is_visible ? 'Visible on App' : 'Hidden from App'}
+                      </div>
+                      <div className={`w-10 h-5 rounded-full relative transition-all ${formData.is_visible ? 'bg-emerald-500' : 'bg-slate-600'}`}>
+                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.is_visible ? 'right-1' : 'left-1'}`} />
+                      </div>
+                    </button>
                   </div>
                 </div>
 
@@ -220,12 +250,22 @@ export default function ManageCategories() {
                         </button>
                       </div>
 
-                      <div className="absolute bottom-6 left-6 right-6">
-                        <h3 className="text-2xl font-black text-white leading-tight">{item.name}</h3>
-                        <div className="flex items-center gap-2 mt-2">
-                           <div className="w-2 h-2 rounded-full bg-amber-500 shadow-lg shadow-amber-500/50" />
-                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Active Category</p>
+                      <div className="absolute bottom-6 left-6 right-6 flex items-center justify-between">
+                        <div>
+                          <h3 className="text-2xl font-black text-white leading-tight">{item.name}</h3>
+                          <div className="flex items-center gap-2 mt-2">
+                             <div className={`w-2 h-2 rounded-full shadow-lg ${item.is_visible !== false ? 'bg-emerald-500 shadow-emerald-500/50' : 'bg-red-500 shadow-red-500/50'}`} />
+                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                               {item.is_visible !== false ? 'Active Category' : 'Hidden Category'}
+                             </p>
+                          </div>
                         </div>
+                        <button 
+                          onClick={() => toggleVisibility(item)}
+                          className={`p-3 rounded-2xl border transition-all ${item.is_visible !== false ? 'bg-emerald-500/20 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white' : 'bg-red-500/20 border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white'}`}
+                        >
+                          {item.is_visible !== false ? <Eye size={20} /> : <EyeOff size={20} />}
+                        </button>
                       </div>
                     </div>
                   </div>
