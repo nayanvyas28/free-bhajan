@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, NavLink } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, NavLink, Navigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -9,9 +9,12 @@ import {
   Flower2,
   FileSpreadsheet,
   Lightbulb,
-  Tags
+  Tags,
+  Loader2
 } from 'lucide-react';
 
+import { supabase } from './lib/supabase';
+import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import AddBhajan from './components/AddBhajan';
 import BhajanList from './components/BhajanList';
@@ -20,6 +23,40 @@ import ManageSolutions from './components/ManageSolutions';
 import ManageCategories from './components/ManageCategories';
 
 function App() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
+        <Loader2 className="animate-spin text-amber-500" size={48} />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Login />;
+  }
+
   return (
     <Router>
       <div className="flex min-h-screen bg-[#0F172A] text-slate-100">
@@ -42,7 +79,10 @@ function App() {
           </nav>
 
           <div className="p-6 border-t border-slate-800">
-            <button className="flex items-center gap-3 text-slate-400 font-semibold px-4 py-3 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all w-full group">
+            <button 
+              onClick={handleLogout}
+              className="flex items-center gap-3 text-slate-400 font-semibold px-4 py-3 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all w-full group"
+            >
               <LogOut size={20} className="group-hover:translate-x-1 transition-transform" />
               Logout
             </button>
@@ -57,11 +97,11 @@ function App() {
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <p className="text-sm font-bold text-white">Nayan</p>
+                <p className="text-sm font-bold text-white">{session.user.email.split('@')[0]}</p>
                 <p className="text-[10px] text-amber-500 font-black uppercase">Super Admin</p>
               </div>
-              <div className="w-10 h-10 rounded-2xl bg-amber-500 flex items-center justify-center text-white font-black shadow-lg shadow-amber-500/30">
-                N
+              <div className="w-10 h-10 rounded-2xl bg-amber-500 flex items-center justify-center text-white font-black shadow-lg shadow-amber-500/30 text-xs uppercase">
+                {session.user.email[0]}
               </div>
             </div>
           </header>
@@ -74,6 +114,7 @@ function App() {
               <Route path="/upaye" element={<ManageSolutions />} />
               <Route path="/import" element={<ExcelImport />} />
               <Route path="/list" element={<BhajanList />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
         </div>
