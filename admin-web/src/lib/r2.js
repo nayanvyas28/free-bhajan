@@ -1,4 +1,4 @@
-import { S3Client } from "@aws-sdk/client-s3";
+import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 
 // R2 Configuration from environment variables
@@ -76,5 +76,47 @@ export const uploadToR2 = async (file, onProgress) => {
             throw new Error("Cloudflare Connection Blocked (CORS). Please ensure you have enabled CORS in R2 Settings.");
         }
         throw error;
+    }
+};
+
+/**
+ * Deletes a file from Cloudflare R2
+ * @param {string} publicUrl - The full public URL of the file to delete
+ */
+export const deleteFromR2 = async (publicUrl) => {
+    if (!publicUrl) return;
+    
+    try {
+        // 1. Determine bucket and file key from URL
+        let bucketName = "";
+        let fileKey = "";
+
+        const audioBase = import.meta.env.VITE_R2_PUBLIC_URL_AUDIO;
+        const videoBase = import.meta.env.VITE_R2_PUBLIC_URL_VIDEO;
+
+        if (publicUrl.startsWith(audioBase)) {
+            bucketName = import.meta.env.VITE_R2_BUCKET_NAME_AUDIO || "mpaudio";
+            fileKey = publicUrl.replace(`${audioBase}/`, "");
+        } else if (publicUrl.startsWith(videoBase)) {
+            bucketName = import.meta.env.VITE_R2_BUCKET_NAME_VIDEO || "mpbucket";
+            fileKey = publicUrl.replace(`${videoBase}/`, "");
+        } else {
+            console.warn("[R2] URL does not match known R2 public bases. Skipping deletion:", publicUrl);
+            return;
+        }
+
+        console.log(`[R2] Attempting to delete: ${fileKey} from bucket: ${bucketName}`);
+
+        const deleteCommand = new DeleteObjectCommand({
+            Bucket: bucketName,
+            Key: fileKey,
+        });
+
+        await s3Client.send(deleteCommand);
+        console.log(`[R2] Deleted successfully: ${fileKey}`);
+    } catch (error) {
+        console.error("[R2] Deletion Error:", error);
+        // We don't throw here to avoid blocking the DB deletion if R2 fails
+        // but we log it for awareness.
     }
 };

@@ -72,7 +72,7 @@ export default function GlobalPlayer() {
     setPosition(0);
     setShowControls(true);
 
-    const urlWithBust = isCloudflare ? `${directUrl}${directUrl.includes('?') ? '&' : '?'}t=${Date.now()}` : directUrl;
+    const urlWithBust = directUrl; // Removed cache buster to fix Range/Seeking issues
     player.replace({
       uri: urlWithBust,
       metadata: {
@@ -89,22 +89,29 @@ export default function GlobalPlayer() {
   const probeDuration = async (url) => {
     if (!url || isYoutube) return;
     try {
-      const response = await fetch(url, { headers: { Range: 'bytes=0-65536' } });
+      // Try to get headers first
+      const headResponse = await fetch(url, { method: 'HEAD' });
+      const contentLength = headResponse.headers.get('content-length');
+      
+      // Probe the first 128KB for metadata
+      const response = await fetch(url, { headers: { Range: 'bytes=0-131072' } });
       const buffer = await response.arrayBuffer();
       const view = new DataView(buffer);
+      
       for (let i = 0; i < view.byteLength - 20; i++) {
-        if (view.getUint32(i) === 0x6D766864) { // 'mvhd'
+        // Look for 'mvhd' box in MP4
+        if (view.getUint32(i) === 0x6D766864) { 
           const version = view.getUint8(i + 4);
-          let timescale, duration;
+          let timescale, durationVal;
           if (version === 0) {
             timescale = view.getUint32(i + 12);
-            duration = view.getUint32(i + 16);
+            durationVal = view.getUint32(i + 16);
           } else {
             timescale = view.getUint32(i + 20);
-            duration = view.getUint32(i + 24);
+            durationVal = view.getUint32(i + 24);
           }
-          if (timescale > 0 && duration > 0) {
-            const realDur = duration / timescale;
+          if (timescale > 0 && durationVal > 0) {
+            const realDur = durationVal / timescale;
             if (realDur > 1) {
               setDuration(realDur);
               return;
@@ -117,40 +124,73 @@ export default function GlobalPlayer() {
     }
   };
 
+  const playerRef = useRef(player);
+  useEffect(() => {
+    playerRef.current = player;
+  }, [player]);
+
   // 6. STATUS LISTENERS & TIME SYNC (EXPO-VIDEO)
   useEffect(() => {
     if (!player || isYoutube) return;
-    if (isCloudflare) probeDuration(directUrl);
+    if (isCloudflare || isSupabase) probeDuration(directUrl);
     
-    const statusSub = player.addListener('statusChange', (status) => {
-      setIsBuffering(status === 'loading' || status === 'buffering');
-      const d = player.duration || (player.currentItem && player.currentItem.duration) || 0;
-      if (d > 0) setDuration(d);
-    });
+    let isEffectActive = true;
+    let statusSub, durSub, timeSub;
 
-    const durSub = player.addListener('durationChange', (newDur) => {
-      if (newDur > 0) setDuration(newDur);
-    });
+    try {
+      statusSub = player.addListener('statusChange', (status) => {
+        if (!isEffectActive) return;
+        setIsBuffering(status === 'loading' || status === 'buffering');
+        try {
+          const d = player.duration || (player.currentItem && player.currentItem.duration) || 0;
+          if (d > 0) setDuration(d);
+        } catch (e) {}
+      });
 
-    const interval = setInterval(() => {
-      if (player && !isYoutube && !isDraggingRef.current && !isSeekingRef.current) {
-        const curTime = player.currentTime || 0;
-        const totalTime = player.duration || (player.currentItem && player.currentItem.duration) || 0;
-        
-        if (curTime >= 0) setPosition(curTime);
-        
-        if (totalTime > 0) {
-          setDuration((prev) => (Math.abs(prev - totalTime) > 0.5 ? totalTime : prev));
+      durSub = player.addListener('durationChange', (newDur) => {
+        if (!isEffectActive) return;
+        if (newDur > 0) setDuration(newDur);
+      });
+
+      timeSub = player.addListener('timeUpdate', (event) => {
+        if (!isEffectActive) return;
+        if (!isDraggingRef.current && !isSeekingRef.current) {
+          const curTime = event.currentTime || 0;
+          if (curTime >= 0) setPosition(curTime);
         }
+      });
+    } catch (e) {
+      console.warn("[Player] Subscriptions failed:", e.message);
+    }
+
+    // Safe Interval using Ref to avoid "already released" errors
+    const interval = setInterval(() => {
+      if (!isEffectActive || !playerRef.current) return;
+      try {
+        if (!isYoutube && !isDraggingRef.current && !isSeekingRef.current) {
+          const curTime = playerRef.current.currentTime || 0;
+          if (curTime >= 0) setPosition(curTime);
+          
+          const totalTime = playerRef.current.duration || (playerRef.current.currentItem && playerRef.current.currentItem.duration) || 0;
+          if (totalTime > 0) {
+            setDuration((prev) => (Math.abs(prev - totalTime) > 0.5 ? totalTime : prev));
+          }
+        }
+      } catch (err) {
+        // Silent fail for released objects
       }
-    }, 500);
+    }, 500); 
 
     return () => {
-      statusSub?.remove();
-      durSub?.remove();
+      isEffectActive = false;
+      try {
+        statusSub?.remove();
+        durSub?.remove();
+        timeSub?.remove();
+      } catch (e) {}
       clearInterval(interval);
     };
-  }, [player, isYoutube]);
+  }, [player, isYoutube, directUrl]);
 
   // Sync Play/Pause state
   useEffect(() => {
@@ -166,7 +206,7 @@ export default function GlobalPlayer() {
   useEffect(() => {
     if (!isYoutube) return;
     const interval = setInterval(async () => {
-      if (ytPlayerRef.current) {
+      if (ytPlayerRef.current && !isDraggingRef.current && !isSeekingRef.current) {
         try {
           const t = await ytPlayerRef.current.getCurrentTime();
           const d = await ytPlayerRef.current.getDuration();
@@ -218,83 +258,104 @@ export default function GlobalPlayer() {
 
   const controlsTimeout = useRef(null);
   const [barWidth, setBarWidth] = useState(Dimensions.get('window').width - 40);
+  const [barX, setBarX] = useState(20);
   const [isDragging, setIsDragging] = useState(false);
   const [dragProgress, setDragProgress] = useState(0);
 
   const isYoutubeRef = useRef(isYoutube);
   const durationRef = useRef(duration);
   const barWidthRef = useRef(barWidth);
+  const barXRef = useRef(barX);
   const isDraggingRef = useRef(false);
   const isSeekingRef = useRef(false);
 
   useEffect(() => { isYoutubeRef.current = isYoutube; }, [isYoutube]);
   useEffect(() => { durationRef.current = duration; }, [duration]);
-  useEffect(() => { barWidthRef.current = barWidth; }, [barWidth]);
-  useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
+  
+  const updateBarWidth = (w) => {
+    setBarWidth(w);
+    barWidthRef.current = w;
+  };
+
+  const updateBarX = (x) => {
+    setBarX(x);
+    barXRef.current = x;
+  };
+
+  // Unified Duration Logic - Move above PanResponder
+  const getEffectiveDuration = () => {
+    const pDur = (player && player.duration > 0) ? player.duration : 
+                ((player && player.currentItem && player.currentItem.duration > 0) ? player.currentItem.duration : 0);
+    const dbDur = currentVideo?.duration || 0;
+    return pDur > 0 ? pDur : (dbDur > 0 ? dbDur : duration);
+  };
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
-        if (durationRef.current <= 0 && !isYoutubeRef.current) return;
+        const dur = getEffectiveDuration();
+        if (dur <= 0 && !isYoutubeRef.current) return;
+        
+        isDraggingRef.current = true;
         setIsDragging(true);
+        
+        const bX = evt.nativeEvent.pageX - evt.nativeEvent.locationX;
+        updateBarX(bX);
         if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
       },
       onPanResponderMove: (evt, gestureState) => {
-        if (durationRef.current <= 0 && !isYoutubeRef.current) return;
-        // Approximation of drag position
-        let newPct = (gestureState.moveX - 20) / barWidthRef.current; // 20 is left padding
+        const dur = getEffectiveDuration();
+        if (dur <= 0 && !isYoutubeRef.current) return;
+        
+        const touchX = gestureState.moveX || evt.nativeEvent.pageX;
+        const bWidth = barWidthRef.current || 1;
+        
+        let newPct = (touchX - barXRef.current) / bWidth;
         newPct = Math.min(Math.max(newPct, 0), 1);
         setDragProgress(newPct * 100);
       },
       onPanResponderRelease: (evt, gestureState) => {
-        const dur = durationRef.current;
+        const dur = getEffectiveDuration();
         if (dur <= 0 && !isYoutubeRef.current) return;
+        
+        isDraggingRef.current = false;
         setIsDragging(false);
         
-        // Calculate relative position based on screen width and padding
-        const screenWidth = Dimensions.get('window').width;
-        const barPadding = 20; 
-        const relativeX = gestureState.moveX - barPadding;
-        let newPct = relativeX / (screenWidth - barPadding * 2);
+        const touchX = gestureState.moveX || evt.nativeEvent.pageX;
+        const bWidth = barWidthRef.current || 1;
         
+        let newPct = (touchX - barXRef.current) / bWidth;
         newPct = Math.min(Math.max(newPct, 0), 1);
         const newPosition = Math.floor(newPct * dur);
         
         isSeekingRef.current = true;
+        setPosition(newPosition);
+        
         if (isYoutubeRef.current) {
           ytPlayerRef.current?.seekTo(newPosition, true);
         } else if (player) {
-          player.currentTime = newPosition;
-          player.play();
+          try {
+            player.currentTime = newPosition;
+            player.play();
+          } catch (e) {
+            console.log("Seek error:", e);
+          }
         }
-        setPosition(newPosition);
-        setTimeout(() => { isSeekingRef.current = false; }, 1000);
+        
+        resumeVideo();
+        
+        setTimeout(() => { 
+          isSeekingRef.current = false; 
+        }, 1000); 
         setShowControls(true);
       }
     })
   );
 
 
-  const handleSeekClick = (event) => {
-    const dur = durationRef.current;
-    if (dur <= 0 && !isYoutubeRef.current) return;
-    
-    const { locationX } = event.nativeEvent;
-    const percentage = locationX / barWidthRef.current;
-    const newPosition = Math.floor(percentage * dur);
-    
-    isSeekingRef.current = true;
-    if (isYoutubeRef.current) {
-      ytPlayerRef.current?.seekTo(newPosition, true);
-    } else if (player) {
-      player.currentTime = newPosition;
-      player.play();
-    }
-    setPosition(newPosition);
-    setTimeout(() => { isSeekingRef.current = false; }, 1000);
-  };
+
 
   const formatTime = (secs) => {
     if (!secs || isNaN(secs) || secs < 0) return '0:00';
@@ -306,12 +367,7 @@ export default function GlobalPlayer() {
 
   if (!currentVideo) return null;
 
-  // Try to get a live reading of duration directly from the player object as a final fallback
-  const dbDuration = currentVideo?.duration || 0;
-  const liveDuration = (player && player.duration > 0) ? player.duration : 
-                     ((player && player.currentItem && player.currentItem.duration > 0) ? player.currentItem.duration : 
-                     (dbDuration > 0 ? dbDuration : duration));
-  
+  const liveDuration = getEffectiveDuration();
   const isUnknownDuration = liveDuration <= 0;
   const rawProgressPct = (liveDuration > 0) ? (position / liveDuration) * 100 : 0;
   const currentPct = Math.min(Math.max(rawProgressPct, 0), 100);
@@ -360,7 +416,7 @@ export default function GlobalPlayer() {
               <View style={styles.spotifyProgArea}>
                 <View 
                   {...panResponder.current.panHandlers}
-                  onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+                  onLayout={(e) => updateBarWidth(e.nativeEvent.layout.width)}
                   style={styles.progressBarTouchable}
                 >
                   <View style={styles.progBg}>
@@ -418,7 +474,7 @@ export default function GlobalPlayer() {
                     <Text style={styles.overlayTime}>{formatTime(position)} {isUnknownDuration ? '' : `/ ${displayDuration}`}</Text>
                     <View 
                       {...panResponder.current.panHandlers}
-                      onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+                      onLayout={(e) => updateBarWidth(e.nativeEvent.layout.width)}
                       style={styles.progressBarTouchable}
                     >
                       <View style={[styles.overlayProgBg, { position: 'relative' }]}>

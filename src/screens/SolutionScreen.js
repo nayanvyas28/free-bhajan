@@ -4,8 +4,10 @@ import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import Header from '../components/Header';
 import { getSolutions, getCategories } from '../services/youtubeApi';
-import { Lightbulb, PlayCircle, Video, Music } from 'lucide-react-native';
+import { Lightbulb, PlayCircle, Video, Music, Heart } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
+import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
+import { Alert } from 'react-native';
 
 const DEFAULT_CATS = ['All', 'Health', 'Wealth', 'Job', 'Family', 'Peace', 'Mangal Dosh', 'Shani Dosh', 'Rahu Dosh', 'Kaal Sarp'];
 const DEITIES = ['Krishna', 'Shiv', 'Ram', 'Hanuman', 'Ganesha', 'Devi', 'Durga', 'Saraswati', 'Sai Baba', 'Laxmi', 'Mahadev'];
@@ -20,6 +22,7 @@ export default function SolutionScreen() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeType, setActiveType] = useState('video'); // 'video' or 'audio'
   const [expandedId, setExpandedId] = useState(null);
+  const [favIds, setFavIds] = useState([]);
 
   useEffect(() => {
     fetchCategories();
@@ -27,6 +30,7 @@ export default function SolutionScreen() {
 
   useEffect(() => {
     loadSolutions();
+    loadFavorites();
   }, [activeCategory, activeType]);
 
   const fetchCategories = async () => {
@@ -50,6 +54,37 @@ export default function SolutionScreen() {
     setLoading(false);
   };
 
+  const loadFavorites = async () => {
+    const favs = await getFavorites();
+    setFavIds(favs.map(f => f.id?.videoId || f.id));
+  };
+
+  const toggleFavorite = async (item) => {
+    const videoId = item.id?.videoId || item.id;
+    const isFav = favIds.includes(videoId);
+
+    if (isFav) {
+      Alert.alert(
+        t('removeFavoriteTitle') || 'Remove Favorite',
+        t('removeFavoriteMessage') || 'Are you sure you want to remove this from your favorites?',
+        [
+          { text: t('cancel') || 'Cancel', style: 'cancel' },
+          { 
+            text: t('remove') || 'Remove', 
+            style: 'destructive',
+            onPress: async () => {
+              await removeFavorite(videoId);
+              loadFavorites();
+            }
+          }
+        ]
+      );
+    } else {
+      await saveFavorite(item);
+      loadFavorites();
+    }
+  };
+
   const handleSolutionPress = (item) => {
     const finalUrl = item.url || item.video_url;
     if (finalUrl) {
@@ -57,7 +92,8 @@ export default function SolutionScreen() {
         id: finalUrl,
         title: item.title || 'Spiritual Solution',
         thumbnail: item.image_url,
-        type: item.type || 'video'
+        type: item.type || 'video',
+        duration: item.duration || 0
       });
     }
   };
@@ -72,12 +108,25 @@ export default function SolutionScreen() {
         style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
       >
         <View style={styles.cardHeader}>
-          <View style={styles.iconBox}>
-            <Lightbulb size={18} color={theme.primary} />
+          <View style={styles.headerLeft}>
+            <View style={styles.iconBox}>
+              <Lightbulb size={18} color={theme.primary} />
+            </View>
+            <View style={[styles.badge, { backgroundColor: theme.primary + '15' }]}>
+              <Text style={[styles.badgeText, { color: theme.primary }]}>{t(item.category)}</Text>
+            </View>
           </View>
-          <View style={[styles.badge, { backgroundColor: theme.primary + '15' }]}>
-            <Text style={[styles.badgeText, { color: theme.primary }]}>{t(item.category)}</Text>
-          </View>
+          
+          <TouchableOpacity 
+            style={styles.heartBtn} 
+            onPress={() => toggleFavorite(item)}
+          >
+            <Heart 
+              size={22} 
+              color={favIds.includes(item.id?.videoId || item.id) ? '#FF4B4B' : theme.subtext} 
+              fill={favIds.includes(item.id?.videoId || item.id) ? '#FF4B4B' : 'transparent'} 
+            />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.contentRow}>
@@ -104,7 +153,7 @@ export default function SolutionScreen() {
               {item.description}
             </Text>
             {!isExpanded && item.description?.length > 60 && (
-              <Text style={[styles.readMore, { color: theme.primary }]}>Read More</Text>
+              <Text style={[styles.readMore, { color: theme.primary }]}>{t('readMore')}</Text>
             )}
           </View>
         </View>
@@ -116,7 +165,7 @@ export default function SolutionScreen() {
           >
             <PlayCircle size={16} color={theme.primary} />
             <Text style={[styles.videoBtnText, { color: theme.primary }]}>
-              {item.type === 'audio' ? 'Play Audio Upaye' : t('watchVideo')}
+              {item.type === 'audio' ? t('upayeAudio') : t('watchVideo')}
             </Text>
           </TouchableOpacity>
         )}
@@ -130,8 +179,8 @@ export default function SolutionScreen() {
       
       <View style={styles.typeTabs}>
         {[
-          { id: 'video', label: 'Video Upaye', icon: Video },
-          { id: 'audio', label: 'Audio Upaye', icon: Music }
+          { id: 'video', label: t('upayeVideo'), icon: Video },
+          { id: 'audio', label: t('upayeAudio'), icon: Music }
         ].map(tab => (
           <TouchableOpacity
             key={tab.id}
@@ -216,6 +265,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heartBtn: { padding: 4 },
   iconBox: { borderRadius: 10, padding: 6 },
   badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   badgeText: { fontSize: 10, fontFamily: 'Outfit-Black', letterSpacing: 0.5, textTransform: 'uppercase' },

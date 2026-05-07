@@ -73,7 +73,9 @@ export default function HomeScreen({ navigation, route }) {
       console.log("Load error in HomeScreen:", err);
     }
     
-    setVideos(data || []);
+    // Filter out audio files, show only videos/youtube
+    const videoOnlyData = (data || []).filter(item => item.type !== 'audio');
+    setVideos(videoOnlyData);
     setLoading(false);
   };
 
@@ -116,7 +118,7 @@ export default function HomeScreen({ navigation, route }) {
 
   const loadFavorites = async () => {
     const favs = await getFavorites();
-    setFavIds(favs.map(f => f.id.videoId));
+    setFavIds(favs.map(f => f.id?.videoId || f.id));
   };
 
   useEffect(() => {
@@ -160,10 +162,10 @@ export default function HomeScreen({ navigation, route }) {
   const renderItem = ({ item }) => (
     <VideoCard
       video={item}
-      isFav={favIds.includes(item.id.videoId)}
+      isFav={favIds.includes(item.id?.videoId || item.id)}
       onFavorite={() => toggleFavorite(item)}
       onPress={() => {
-        console.log("Video clicked:", item.snippet?.title);
+        console.log("Video clicked:", item.title || item.snippet?.title);
         playVideo(item, videos);
       }}
     />
@@ -171,7 +173,7 @@ export default function HomeScreen({ navigation, route }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Header title="Devotional" />
+      <Header title={t('devotional')} />
       
       <View style={styles.searchContainer}>
         <View style={[styles.searchInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>

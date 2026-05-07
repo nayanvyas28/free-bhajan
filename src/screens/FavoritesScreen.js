@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, Text, TouchableOpacity, Image } from 'react-native';
+import { View, FlatList, StyleSheet, Text, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { getFavorites, removeFavorite } from '../storage/favorites';
 import VideoCard from '../components/VideoCard';
 import Header from '../components/Header';
@@ -7,7 +7,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Heart, Lock, LogIn } from 'lucide-react-native';
+import { Heart, Lock, LogIn, Video, Music, Sparkles } from 'lucide-react-native';
 import ConfirmationModal from '../components/ConfirmationModal';
 
 export default function FavoritesScreen({ navigation }) {
@@ -34,9 +34,20 @@ export default function FavoritesScreen({ navigation }) {
     }
   }, [navigation, isAuthenticated]);
 
-  const filteredData = favorites.filter(item => 
-    activeTab === 'video' ? (item.type === 'youtube' || !item.type) : (item.type === 'audio')
-  );
+  const filteredData = favorites.filter(item => {
+    const isSol = item.is_solution || !!item.image_url;
+    
+    if (activeTab === 'u_video') return isSol && item.type === 'video';
+    if (activeTab === 'u_audio') return isSol && item.type === 'audio';
+    
+    if (activeTab === 'video') {
+      return !isSol && (item.type === 'youtube' || item.type === 'video' || !item.type);
+    }
+    if (activeTab === 'audio') {
+      return !isSol && item.type === 'audio';
+    }
+    return false;
+  });
 
   const handleToggleFavorite = (video) => {
     setVideoToRemove(video);
@@ -53,8 +64,8 @@ export default function FavoritesScreen({ navigation }) {
   };
 
   const renderItem = ({ item }) => {
-    if (activeTab === 'audio') {
-      // Robust image detection for both curated and youtube items
+    // Audio items (both Bhajan and Upaye) use the compact horizontal style
+    if (activeTab === 'audio' || activeTab === 'u_audio') {
       const imageUrl = 
         item.thumbnail || 
         item.snippet?.thumbnails?.high?.url || 
@@ -78,7 +89,7 @@ export default function FavoritesScreen({ navigation }) {
               {item.title || item.snippet?.title}
             </Text>
             <Text style={[styles.audioSubtitle, { color: theme.subtext }]} numberOfLines={1}>
-              {item.category || item.snippet?.channelTitle || 'Bhajan'}
+              {item.is_solution ? t(item.category) : (item.category || item.snippet?.channelTitle || 'Bhajan')}
             </Text>
           </View>
 
@@ -92,6 +103,7 @@ export default function FavoritesScreen({ navigation }) {
       );
     }
 
+    // Video items (both Bhajan and Upaye) use the large VideoCard style
     return (
       <VideoCard
         video={item}
@@ -130,23 +142,37 @@ export default function FavoritesScreen({ navigation }) {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Header title={t('favorites')} />
 
-      <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'video' && { borderBottomColor: theme.primary, borderBottomWidth: 3 }]}
-          onPress={() => setActiveTab('video')}
-        >
-          <Text style={[styles.tabText, { color: activeTab === 'video' ? theme.primary : theme.subtext }]}>
-            VIDEOS
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'audio' && { borderBottomColor: theme.primary, borderBottomWidth: 3 }]}
-          onPress={() => setActiveTab('audio')}
-        >
-          <Text style={[styles.tabText, { color: activeTab === 'audio' ? theme.primary : theme.subtext }]}>
-            AUDIO
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.tabScrollWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabContainer}>
+          {[
+            { id: 'video', label: t('bhajanVideo'), icon: Video },
+            { id: 'audio', label: t('bhajanAudio'), icon: Music },
+            { id: 'u_video', label: t('upayeVideo'), icon: Sparkles },
+            { id: 'u_audio', label: t('upayeAudio'), icon: Music }
+          ].map(tab => (
+            <TouchableOpacity 
+              key={tab.id}
+              style={[
+                styles.tab, 
+                activeTab === tab.id && { backgroundColor: theme.primary + '20', borderColor: theme.primary }
+              ]}
+              onPress={() => setActiveTab(tab.id)}
+            >
+              <tab.icon 
+                size={16} 
+                color={activeTab === tab.id ? theme.primary : theme.subtext} 
+                style={{ marginRight: 6 }}
+              />
+              <Text style={[
+                styles.tabText, 
+                { color: activeTab === tab.id ? theme.primary : theme.subtext },
+                activeTab === tab.id && { fontFamily: 'Outfit-Bold' }
+              ]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       <FlatList
@@ -158,10 +184,10 @@ export default function FavoritesScreen({ navigation }) {
           <View style={styles.emptyContainer}>
             <Heart size={64} color={theme.primary} fill={theme.card} />
             <Text style={[styles.emptyTitle, { color: theme.text }]}>
-              {activeTab === 'video' ? 'No Liked Videos' : 'No Liked Audio'}
+              {t('noLikedItems')}
             </Text>
             <Text style={[styles.emptySubtitle, { color: theme.subtext }]}>
-              Save your favorite {activeTab}s to listen to them anytime.
+              {t('saveFavoriteDivine')}
             </Text>
           </View>
         }
@@ -183,25 +209,27 @@ export default function FavoritesScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   listContent: { paddingTop: 16, paddingBottom: 100 },
+  tabScrollWrapper: { marginTop: 10, marginBottom: 5 },
   tabContainer: {
-    flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 5,
-    backgroundColor: 'transparent',
+    paddingVertical: 10, // Added vertical padding to prevent clipping
+    gap: 12,
+    alignItems: 'center',
   },
   tab: {
-    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    marginHorizontal: 4,
-    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   tabText: {
-    fontSize: 11,
-    fontFamily: 'Outfit-Black',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
+    fontSize: 13,
+    fontFamily: 'Outfit-Medium',
+    letterSpacing: 0.3,
   },
   emptyContainer: { 
     flex: 1, 

@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import Header from '../components/Header';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getCategories, searchBhajans } from '../services/youtubeApi';
+import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
 import { Flower, Stars, Search, X } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import VideoCard from '../components/VideoCard';
@@ -29,9 +30,11 @@ export default function ExploreScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [favIds, setFavIds] = useState([]);
 
   useEffect(() => {
     loadCategories();
+    loadFavorites();
   }, []);
 
   const loadCategories = async () => {
@@ -47,6 +50,22 @@ export default function ExploreScreen({ navigation }) {
       setCategories(DEFAULT_CATEGORIES);
     }
     setLoading(false);
+  };
+
+  const loadFavorites = async () => {
+    const favs = await getFavorites();
+    setFavIds(favs.map(f => f.id?.videoId || f.id));
+  };
+
+  const toggleFavorite = async (video) => {
+    const videoId = video.id?.videoId || video.id;
+    if (favIds.includes(videoId)) {
+      await removeFavorite(videoId);
+      setFavIds(favIds.filter(id => id !== videoId));
+    } else {
+      await saveFavorite(video);
+      setFavIds([...favIds, videoId]);
+    }
   };
 
   const handleSearch = async (query) => {
@@ -145,7 +164,7 @@ export default function ExploreScreen({ navigation }) {
             <View style={styles.resultsContainer}>
               {filteredCategories.length > 0 && (
                 <View style={styles.catResults}>
-                  <Text style={[styles.resultsTitle, { color: theme.text }]}>{t('suggestedCategories') || 'Suggested Categories'}</Text>
+                  <Text style={[styles.resultsTitle, { color: theme.text }]}>{t('suggestedCategories')}</Text>
                   <View style={styles.grid}>
                     {filteredCategories.map((item) => (
                       <TouchableOpacity 
@@ -168,16 +187,18 @@ export default function ExploreScreen({ navigation }) {
               </Text>
               {searchResults.map((item) => (
                 <VideoCard
-                  key={item.id?.videoId || item.audioUrl}
+                  key={item.id?.videoId || item.id || item.audioUrl}
                   video={item}
+                  isFav={favIds.includes(item.id?.videoId || item.id)}
+                  onFavorite={() => toggleFavorite(item)}
                   onPress={() => playVideo(item, searchResults)}
                 />
               ))}
             </View>
           ) : (
             <>
-              {renderSection('deity', t('deities') || 'Devotional Deities', <Flower size={20} color="#FFB300" />)}
-              {renderSection('dosh', t('kundliDosh') || 'Kundli Dosh Guidance', <Stars size={20} color="#FFB300" />)}
+              {renderSection('deity', t('deities'), <Flower size={20} color="#FFB300" />)}
+              {renderSection('dosh', t('kundliDosh'), <Stars size={20} color="#FFB300" />)}
             </>
           )}
         </ScrollView>

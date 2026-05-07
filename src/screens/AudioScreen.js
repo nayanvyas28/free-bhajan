@@ -60,9 +60,14 @@ export default function AudioScreen({ navigation }) {
   };
 
   const renderSongItem = ({ item }) => {
-    const videoId = item.id.videoId || item.id;
+    const videoId = item.id?.videoId || item.id;
     const isPlaying = (currentVideo?.id?.videoId || currentVideo?.id) === videoId;
     const isFav = favIds.includes(videoId);
+
+    // Support both Cloudflare and YouTube formats
+    const title = item.title || item.snippet?.title || 'Untitled';
+    const subTitle = item.category || item.snippet?.channelTitle || 'Bhajan';
+    const thumb = item.thumbnail || item.snippet?.thumbnails?.high?.url;
 
     return (
       <TouchableOpacity 
@@ -70,7 +75,7 @@ export default function AudioScreen({ navigation }) {
         onPress={() => playVideo(item, songs)}
       >
         <Image 
-          source={{ uri: item.snippet.thumbnails.high.url }} 
+          source={{ uri: thumb || 'https://via.placeholder.com/150' }} 
           style={styles.thumbnail} 
         />
         
@@ -79,10 +84,10 @@ export default function AudioScreen({ navigation }) {
             style={[styles.title, { color: isPlaying ? theme.primary : theme.text }]}
             numberOfLines={1}
           >
-            {item.snippet.title}
+            {title}
           </Text>
           <Text style={[styles.subtitle, { color: theme.subtext }]} numberOfLines={1}>
-            {item.snippet.channelTitle}
+            {subTitle}
           </Text>
         </View>
 

@@ -104,7 +104,14 @@ export const getSolutions = async (category = null, type = null) => {
     if (type) query = query.eq('type', type);
     const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+    
+    // Add solution flag for easier filtering in favorites
+    const processedData = (data || []).map(item => ({
+      ...item,
+      is_solution: true
+    }));
+    
+    return processedData;
   } catch (error) {
     console.error('Solutions Error:', error);
     return [];

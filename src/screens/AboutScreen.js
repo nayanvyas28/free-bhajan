@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AboutScreen({ navigation }) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -13,7 +14,7 @@ export default function AboutScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ChevronLeft size={28} color={theme.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>About Mantra Puja</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>{t('aboutApp')}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -24,37 +25,34 @@ export default function AboutScreen({ navigation }) {
           resizeMode="contain"
         />
         <Text style={[styles.appName, { color: theme.text }]}>Mantra Puja</Text>
-        <Text style={[styles.version, { color: theme.subtext }]}>Version 1.0.0</Text>
+        <Text style={[styles.version, { color: theme.subtext }]}>{t('versionLabel')} 1.0.0</Text>
       </View>
 
       <View style={styles.content}>
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={[styles.cardTitle, { color: theme.primary }]}>Our Vision</Text>
+          <Text style={[styles.cardTitle, { color: theme.primary }]}>{t('ourVision')}</Text>
           <Text style={[styles.description, { color: theme.text }]}>
-            Mantra Puja is a comprehensive platform for booking Hindu pujas (rituals), 
-            astrology readings, and spiritual services online. Our mission is to make 
-            authentic Vedic rituals accessible to everyone, everywhere. Explore our vast 
-            library of bhajans, mantras, and devotional content.
+            {t('visionDescription')}
           </Text>
         </View>
 
         <View style={styles.features}>
           <View style={[styles.featureItem, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <Star size={24} color={theme.primary} />
-            <Text style={[styles.featureText, { color: theme.text }]}>Authentic Vedic Rituals</Text>
+            <Text style={[styles.featureText, { color: theme.text }]}>{t('authenticRituals')}</Text>
           </View>
           <View style={[styles.featureItem, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <Info size={24} color={theme.primary} />
-            <Text style={[styles.featureText, { color: theme.text }]}>Expert Astrologers</Text>
+            <Text style={[styles.featureText, { color: theme.text }]}>{t('expertAstrologers')}</Text>
           </View>
           <View style={[styles.featureItem, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <Music size={24} color={theme.primary} />
-            <Text style={[styles.featureText, { color: theme.text }]}>Spiritual Library</Text>
+            <Text style={[styles.featureText, { color: theme.text }]}>{t('spiritualLib')}</Text>
           </View>
         </View>
 
         <View style={[styles.contactCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={[styles.cardTitle, { color: theme.primary }]}>Get In Touch</Text>
+          <Text style={[styles.cardTitle, { color: theme.primary }]}>{t('getInTouch')}</Text>
           
           <TouchableOpacity style={styles.linkRow} onPress={() => Linking.openURL('https://mantrapuja.com')}>
             <Globe size={20} color={theme.subtext} />
@@ -69,7 +67,7 @@ export default function AboutScreen({ navigation }) {
       </View>
 
       <Text style={[styles.footer, { color: theme.subtext }]}>
-        © 2026 Mantra Puja. All rights reserved.
+        © 2026 Mantra Puja. {t('allRightsReserved')}
       </Text>
       <View style={{ height: 40 }} />
     </ScrollView>

@@ -77,7 +77,7 @@ export default function ProfileScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ChevronLeft size={28} color={theme.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>My Profile</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>{t('profile')}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -91,14 +91,14 @@ export default function ProfileScreen({ navigation }) {
       </View>
 
       <View style={styles.form}>
-        <Text style={[styles.label, { color: theme.subtext }]}>FULL NAME</Text>
+        <Text style={[styles.label, { color: theme.subtext }]}>{t('fullName')}</Text>
         <View style={[styles.inputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <User size={20} color={theme.primary} style={styles.icon} />
           <TextInput
             style={[styles.input, { color: theme.text }]}
             value={name}
             onChangeText={setName}
-            placeholder="Enter your name"
+            placeholder={t('yourName')}
             placeholderTextColor={theme.subtext}
           />
         </View>
@@ -113,7 +113,7 @@ export default function ProfileScreen({ navigation }) {
           ) : (
             <>
               <Save size={20} color="#FFF" />
-              <Text style={styles.saveBtnText}>Update Profile</Text>
+              <Text style={styles.saveBtnText}>{t('saveChanges')}</Text>
             </>
           )}
         </TouchableOpacity>
@@ -169,7 +169,7 @@ export default function ProfileScreen({ navigation }) {
         onPress={handleSignOut}
       >
         <LogOut size={20} color="#FF3B30" />
-        <Text style={styles.signOutText}>Sign Out</Text>
+        <Text style={styles.signOutText}>{t('logout')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
