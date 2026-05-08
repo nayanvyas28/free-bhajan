@@ -21,7 +21,9 @@
         "backgroundColor": "#0F0F13"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.nayan.drishtibhajan"
+      "package": "com.nayan.drishtibhajan",
+      "usesCleartextTraffic": true,
+      "permissions": ["INTERNET"]
     },
     "web": {
       "favicon": "./assets/mantrapuja_logo.png"

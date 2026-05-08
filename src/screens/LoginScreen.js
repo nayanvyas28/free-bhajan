@@ -12,6 +12,7 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useCustomAlert } from '../context/AlertContext';
 import { Phone, MessageSquare, ArrowRight, User } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -85,9 +86,11 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
-      await startWhatsAppLogin(formattedPhone);
-      setTimer(60);
-      setStep(2);
+      const response = await startWhatsAppLogin(formattedPhone);
+      if (response) {
+        setTimer(60);
+        setStep(2);
+      }
     } catch (error) {
       showAlert({
         title: t('error'),
