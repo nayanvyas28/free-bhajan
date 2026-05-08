@@ -9,15 +9,12 @@ import { usePlayer } from '../context/PlayerContext';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
 import { Alert } from 'react-native';
 
-const DEFAULT_CATS = ['All', 'Health', 'Wealth', 'Job', 'Family', 'Peace', 'Mangal Dosh', 'Shani Dosh', 'Rahu Dosh', 'Kaal Sarp'];
-const DEITIES = ['Krishna', 'Shiv', 'Ram', 'Hanuman', 'Ganesha', 'Devi', 'Durga', 'Saraswati', 'Sai Baba', 'Laxmi', 'Mahadev'];
-
 export default function SolutionScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const { playVideo } = usePlayer();
   const [solutions, setSolutions] = useState([]);
-  const [categories, setCategories] = useState(DEFAULT_CATS);
+  const [categories, setCategories] = useState(['All']);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeType, setActiveType] = useState('video'); // 'video' or 'audio'
@@ -37,11 +34,12 @@ export default function SolutionScreen() {
     try {
       const data = await getCategories();
       if (data && data.length > 0) {
+        // Only show categories of type 'solution' or 'dosh'
         const names = data
-          .map(c => c.name)
-          .filter(name => !DEITIES.some(d => d.toLowerCase() === name.toLowerCase()));
+          .filter(c => c.type === 'solution' || c.type === 'dosh')
+          .map(c => c.name);
         
-        setCategories([...new Set(['All', ...DEFAULT_CATS, ...names])]);
+        setCategories(['All', ...new Set(names)]);
       }
     } catch (e) {}
   };

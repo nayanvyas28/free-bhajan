@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, Edit2, Loader2, Save, X, Flower2, Image as ImageIcon, Stars, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Edit2, Loader2, Save, X, Flower2, Image as ImageIcon, Stars, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 export default function ManageCategories() {
   const [categories, setCategories] = useState([]);
@@ -138,6 +138,7 @@ export default function ManageCategories() {
                     >
                       <option value="deity">Bhagwan (Deity)</option>
                       <option value="dosh">Kundli Dosh</option>
+                      <option value="solution">Upaye Category</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -189,7 +190,7 @@ export default function ManageCategories() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-6">
                     <p className="text-white font-black text-xl leading-tight">{formData.name || 'Category Name'}</p>
                     <p className="text-amber-500 text-[10px] font-black uppercase tracking-widest mt-1">
-                      {formData.type === 'deity' ? 'Devotional Selection' : 'Astrological Guide'}
+                      {formData.type === 'deity' ? 'Devotional Selection' : formData.type === 'dosh' ? 'Astrological Guide' : 'Remedy Category'}
                     </p>
                   </div>
                 </div>
@@ -215,13 +216,13 @@ export default function ManageCategories() {
         </div>
       ) : (
         <div className="space-y-16">
-          {['deity', 'dosh'].map(type => (
+          {['deity', 'dosh', 'solution'].map(type => (
             <div key={type} className="space-y-8">
               <div className="flex items-center gap-4">
                 <div className="h-px flex-1 bg-slate-800" />
                 <h3 className="text-2xl font-black text-white flex items-center gap-3 px-4">
-                  {type === 'deity' ? <Flower2 className="text-amber-500" /> : <Stars className="text-amber-500" />}
-                  {type === 'deity' ? 'Bhagwan Categories' : 'Kundli Dosh Categories'}
+                  {type === 'deity' ? <Flower2 className="text-amber-500" /> : type === 'dosh' ? <Stars className="text-amber-500" /> : <Lightbulb className="text-amber-500" />}
+                  {type === 'deity' ? 'Bhagwan Categories' : type === 'dosh' ? 'Kundli Dosh Categories' : 'Upaye Categories'}
                 </h3>
                 <div className="h-px flex-1 bg-slate-800" />
               </div>

@@ -23,12 +23,23 @@ export default function ManageSolutions() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-
-  const CATEGORIES = ['Health', 'Wealth', 'Job', 'Family', 'Peace', 'Other'];
+  const [availableCategories, setAvailableCategories] = useState(['Health', 'Wealth', 'Job', 'Family', 'Peace', 'Other']);
 
   useEffect(() => {
     fetchSolutions();
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('name')
+      .eq('type', 'solution');
+    
+    if (data && data.length > 0) {
+      setAvailableCategories(data.map(c => c.name));
+    }
+  };
 
   const fetchSolutions = async () => {
     try {
@@ -284,7 +295,7 @@ export default function ManageSolutions() {
                     value={formData.category}
                     onChange={e => setFormData({...formData, category: e.target.value})}
                   >
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    {availableCategories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
