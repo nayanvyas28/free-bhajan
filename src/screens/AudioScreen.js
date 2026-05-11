@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import Header from '../components/Header';
 import { getCuratedBhajans } from '../services/youtubeApi';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
-import { MoreVertical, Music, Heart } from 'lucide-react-native';
+import { MoreVertical, Music, Heart, Search, X } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -15,6 +15,8 @@ export default function AudioScreen({ navigation }) {
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [favIds, setFavIds] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredSongs, setFilteredSongs] = useState([]);
 
   useEffect(() => {
     loadSongs();
@@ -24,11 +26,23 @@ export default function AudioScreen({ navigation }) {
   const loadSongs = async () => {
     setLoading(true);
     const data = await getCuratedBhajans();
-    // Only show items that are explicitly of type 'audio'
     const filtered = data.filter(item => item.type === 'audio');
     setSongs(filtered);
+    setFilteredSongs(filtered);
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredSongs(songs);
+    } else {
+      const filtered = songs.filter(item => 
+        item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.category?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredSongs(filtered);
+    }
+  }, [searchQuery, songs]);
 
   const loadFavorites = async () => {
     const favs = await getFavorites();
@@ -64,20 +78,29 @@ export default function AudioScreen({ navigation }) {
     const isPlaying = (currentVideo?.id?.videoId || currentVideo?.id) === videoId;
     const isFav = favIds.includes(videoId);
 
-    // Support both Cloudflare and YouTube formats
     const title = item.title || item.snippet?.title || 'Untitled';
     const subTitle = item.category || item.snippet?.channelTitle || 'Bhajan';
     const thumb = item.thumbnail || item.snippet?.thumbnails?.high?.url;
 
     return (
       <TouchableOpacity 
-        style={styles.songItem}
+        style={[
+          styles.songItem, 
+          isPlaying && { backgroundColor: 'rgba(255, 193, 7, 0.08)', borderColor: 'rgba(255, 193, 7, 0.2)' }
+        ]}
         onPress={() => playVideo(item, songs)}
       >
-        <Image 
-          source={{ uri: thumb || 'https://via.placeholder.com/150' }} 
-          style={styles.thumbnail} 
-        />
+        <View style={styles.thumbWrapper}>
+          <Image 
+            source={{ uri: thumb || 'https://via.placeholder.com/150' }} 
+            style={styles.thumbnail} 
+          />
+          {isPlaying && (
+            <View style={styles.playingOverlay}>
+              <Music size={20} color={theme.primary} />
+            </View>
+          )}
+        </View>
         
         <View style={styles.details}>
           <Text 
@@ -96,9 +119,10 @@ export default function AudioScreen({ navigation }) {
           onPress={() => toggleFavorite(item)}
         >
           <Heart 
-            size={20} 
+            size={22} 
             color={isFav ? "#FF3B30" : theme.subtext} 
             fill={isFav ? "#FF3B30" : "transparent"} 
+            strokeWidth={isFav ? 0 : 2}
           />
         </TouchableOpacity>
       </TouchableOpacity>
@@ -107,13 +131,34 @@ export default function AudioScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Header title={t('music')} />
+      <Header />
       
       <View style={styles.headerSection}>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>{t('spiritualSongs') || 'Spiritual Songs'}</Text>
-        <Text style={[styles.headerSub, { color: theme.subtext }]}>
-          {songs.length} {songs.length === 1 ? (t('trackFound') || 'Track Found') : (t('tracksFound') || 'Tracks Found')}
-        </Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>{t('spiritualSongs')}</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.dot} />
+          <Text style={[styles.headerSub, { color: theme.subtext }]}>
+            {filteredSongs.length} {filteredSongs.length === 1 ? t('trackFound') : t('tracksFound')}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.searchSection}>
+        <View style={[styles.searchInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Search size={20} color={theme.primary} style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={t('searchPlaceholder')}
+            placeholderTextColor={theme.subtext}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <X size={20} color={theme.subtext} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {loading ? (
@@ -122,13 +167,16 @@ export default function AudioScreen({ navigation }) {
         </View>
       ) : (
         <FlatList
-          data={songs}
+          data={filteredSongs}
           renderItem={renderSongItem}
           keyExtractor={(item, index) => index.toString()}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Music size={48} color={theme.border} />
+              <View style={styles.emptyIconBox}>
+                <Music size={40} color={theme.primary} />
+              </View>
               <Text style={[styles.emptyText, { color: theme.subtext }]}>{t('noData')}</Text>
             </View>
           }
@@ -140,60 +188,90 @@ export default function AudioScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  searchSection: { paddingHorizontal: 20, paddingBottom: 15 },
+  searchInputWrapper: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    borderRadius: 20, 
+    paddingHorizontal: 18, 
+    height: 60, 
+    borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  searchIcon: { marginRight: 15 },
+  searchInput: { flex: 1, fontSize: 16, fontFamily: 'Outfit-Bold' },
   headerSection: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 15,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   headerTitle: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Black',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    opacity: 0.8,
+    fontSize: 28,
+    fontFamily: 'Outfit-Bold',
+    letterSpacing: -0.5,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 8,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#4CAF50',
   },
   headerSub: {
-    fontSize: 11,
-    fontFamily: 'Outfit-Medium',
-    marginTop: 4,
+    fontSize: 14,
+    fontFamily: 'Outfit-Bold',
     opacity: 0.6,
   },
   list: {
     paddingHorizontal: 16,
-    paddingBottom: 120,
-    paddingTop: 15,
+    paddingBottom: 150,
   },
   songItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
     borderRadius: 20,
-    marginBottom: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    marginBottom: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  thumbWrapper: {
+    position: 'relative',
   },
   thumbnail: {
-    width: 60,
-    height: 60,
+    width: 56,
+    height: 56,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: '#1A1A1A',
+  },
+  playingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   details: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 15,
     justifyContent: 'center',
   },
   title: {
     fontSize: 15,
     fontFamily: 'Outfit-Bold',
-    marginBottom: 4,
-    letterSpacing: 0.3,
+    marginBottom: 2,
   },
   subtitle: {
     fontSize: 12,
     fontFamily: 'Outfit-Medium',
-    opacity: 0.4,
+    opacity: 0.5,
   },
   favBtn: {
     width: 44,
@@ -211,10 +289,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 100,
-    gap: 16,
+    gap: 20,
+  },
+  emptyIconBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,193,7,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyText: {
     fontSize: 16,
-    fontFamily: 'Outfit-Medium',
+    fontFamily: 'Outfit-Bold',
+    opacity: 0.5,
   }
 });

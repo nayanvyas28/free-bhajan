@@ -11,7 +11,7 @@ import {
   ScrollView,
   Alert
 } from 'react-native';
-import { Search, X, RefreshCcw, Mic } from 'lucide-react-native';
+import { Search, X, RefreshCcw, Mic, Quote, User, Languages } from 'lucide-react-native';
 import { searchBhajans, getCuratedBhajans, getCategories, getDailyQuote } from '../services/youtubeApi';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
 import { useTheme } from '../context/ThemeContext';
@@ -33,13 +33,36 @@ const DEFAULT_CATEGORIES = [
 ];
 
 const DIVINE_QUOTES = [
-  { text: "The soul is neither born, nor does it ever die.", author: "Bhagavad Gita" },
-  { text: "Change is the law of the universe. You can be a millionaire, or a pauper in an instant.", author: "Lord Krishna" },
-  { text: "Set your heart upon your work, but never its reward.", author: "Bhagavad Gita" },
-  { text: "When meditation is mastered, the mind is unwavering like the flame of a candle in a windless place.", author: "Lord Krishna" },
-  { text: "A man is made by his belief. As he believes, so he is.", author: "Bhagavad Gita" },
-  { text: "The power of God is with you at all times; through the activities of mind, senses, breathing, and emotions.", author: "Lord Krishna" },
-  { text: "You have a right to perform your prescribed duties, but you are not entitled to the fruits of your actions.", author: "Lord Krishna" }
+  { 
+    text_en: "The soul is neither born, nor does it ever die.", 
+    text_hi: "आत्मा न तो जन्म लेती है और न ही कभी मरती है।",
+    author_en: "Bhagavad Gita",
+    author_hi: "भगवद गीता"
+  },
+  { 
+    text_en: "Change is the law of the universe. You can be a millionaire, or a pauper in an instant.", 
+    text_hi: "परिवर्तन संसार का नियम है। आप एक पल में करोड़पति या कंगाल हो सकते हैं।",
+    author_en: "Lord Krishna",
+    author_hi: "भगवान कृष्ण"
+  },
+  { 
+    text_en: "Set your heart upon your work, but never its reward.", 
+    text_hi: "अपने कर्म पर अपना दिल लगाओ, लेकिन उसके फल पर कभी नहीं।",
+    author_en: "Bhagavad Gita",
+    author_hi: "भगवद गीता"
+  },
+  { 
+    text_en: "When meditation is mastered, the mind is unwavering like the flame of a candle in a windless place.", 
+    text_hi: "जब ध्यान सिद्ध हो जाता है, तो मन हवा रहित स्थान में मोमबत्ती की लौ की तरह अडिग रहता है।",
+    author_en: "Lord Krishna",
+    author_hi: "भगवान कृष्ण"
+  },
+  { 
+    text_en: "A man is made by his belief. As he believes, so he is.", 
+    text_hi: "मनुष्य अपने विश्वास से बनता है। जैसा वह विश्वास करता है, वैसा ही वह है।",
+    author_en: "Bhagavad Gita",
+    author_hi: "भगवद गीता"
+  }
 ];
 
 export default function HomeScreen({ navigation, route }) {
@@ -58,6 +81,7 @@ export default function HomeScreen({ navigation, route }) {
   const [favIds, setFavIds] = useState([]);
   const [dailyQuote, setDailyQuote] = useState(null);
   const { playVideo } = usePlayer();
+  const { toggleLanguage } = useLanguage();
 
   const fetchDailyQuote = async () => {
     const quote = await getDailyQuote();
@@ -197,28 +221,81 @@ export default function HomeScreen({ navigation, route }) {
   );
   const renderHeader = () => {
     const today = new Date().getDate();
-    // Fallback to static if DB is empty
-    const displayQuote = dailyQuote ? {
-      text: language === 'hi' ? dailyQuote.text_hi : dailyQuote.text_en,
-      author: language === 'hi' ? dailyQuote.author_hi : dailyQuote.author_en
-    } : DIVINE_QUOTES[today % DIVINE_QUOTES.length];
+    const quoteData = dailyQuote || DIVINE_QUOTES[today % DIVINE_QUOTES.length];
+    const displayQuote = {
+      text: language === 'hi' ? quoteData.text_hi : quoteData.text_en,
+      author: language === 'hi' ? quoteData.author_hi : quoteData.author_en
+    };
 
     return (
       <View>
+        <View style={styles.headerArea}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View>
+              <Text style={[styles.headerTitle, { color: theme.text }]}>
+                {t('namaste')}
+              </Text>
+              <Text style={[styles.headerSub, { color: theme.subtext }]}>
+                {t('spiritualLibrary')}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity 
+                onPress={toggleLanguage}
+                style={styles.refreshBtn}
+              >
+                <Languages size={20} color={theme.primary} />
+                <Text style={{ color: theme.primary, fontSize: 10, fontFamily: 'Outfit-Bold', marginLeft: 4 }}>
+                  {language.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => navigation.navigate('Profile')}
+                style={styles.refreshBtn}
+              >
+                <User size={22} color={theme.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.searchWrapper}>
+          <Search size={22} color={theme.primary} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            value={query}
+            onChangeText={setQuery}
+            onSubmitEditing={() => loadVideos(query, activeCategory, activeSubType)}
+            placeholder={t('searchPlaceholder') || "Search for divine melodies..."}
+            placeholderTextColor={theme.subtext}
+          />
+          {query.length > 0 ? (
+            <TouchableOpacity onPress={() => { setQuery(''); loadVideos('', activeCategory, activeSubType); }}>
+              <X size={22} color={theme.subtext} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={() => Alert.alert("Voice Search", "Voice search is coming soon! 🙏")}>
+              <Mic size={22} color={theme.subtext} />
+            </TouchableOpacity>
+          )}
+        </View>
+
         {!query && (
-          <LinearGradient 
-            colors={isDarkMode ? ['#1E293B', '#0F172A'] : ['#FFF8E1', '#FFF']} 
-            style={styles.quoteCard}
-          >
-            <View style={styles.quoteIconArea}>
-              <Text style={{ fontSize: 24 }}>✨</Text>
+          <View style={styles.quoteCard}>
+            <LinearGradient
+              colors={['rgba(255,193,7,0.1)', 'rgba(255,193,7,0.02)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.quoteGradient}
+            />
+            <View style={styles.quoteIconBox}>
+              <Quote size={18} color="#FFC107" fill="#FFC107" fillOpacity={0.2} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.quoteTtl, { color: theme.primary }]}>{t('divineQuoteTitle')}</Text>
-              <Text style={[styles.quoteText, { color: theme.text }]}>"{displayQuote.text}"</Text>
-              <Text style={[styles.quoteAuthor, { color: theme.subtext }]}>— {displayQuote.author}</Text>
+            <View style={styles.quoteContent}>
+              <Text style={styles.quoteText} numberOfLines={3}>"{displayQuote.text}"</Text>
+              <Text style={styles.quoteAuthor}>— {displayQuote.author}</Text>
             </View>
-          </LinearGradient>
+          </View>
         )}
 
         <View style={styles.filtersWrapper}>
@@ -229,26 +306,26 @@ export default function HomeScreen({ navigation, route }) {
                 onPress={() => handleCategoryPress(cat)}
                 style={[
                   styles.categoryChip,
-                  { backgroundColor: theme.card, borderColor: theme.border },
+                  { backgroundColor: theme.card, borderColor: 'rgba(255,255,255,0.05)' },
                   activeCategory === (typeof cat === 'string' ? cat : cat.name) && { backgroundColor: theme.primary, borderColor: theme.primary }
                 ]}
               >
-                <Text style={[styles.categoryText, { color: theme.subtext }, activeCategory === (typeof cat === 'string' ? cat : cat.name) && { color: '#FFF' }]}>
+                <Text style={[styles.categoryText, { color: theme.subtext }, activeCategory === (typeof cat === 'string' ? cat : cat.name) && { color: '#000' }]}>
                   {language === 'hi' && cat.name_hi ? cat.name_hi : t(typeof cat === 'string' ? cat : cat.name)}
                 </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterRow, { marginTop: 10 }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterRow, { marginTop: 15 }]}>
             {SUB_TYPES.map((type) => (
               <TouchableOpacity
                 key={type}
                 onPress={() => handleSubTypePress(type)}
                 style={[
                   styles.subTypeChip,
-                  { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: theme.border },
-                  activeSubType === type && { backgroundColor: 'rgba(255,179,0,0.1)', borderColor: theme.primary }
+                  { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' },
+                  activeSubType === type && { backgroundColor: 'rgba(255,193,7,0.1)', borderColor: theme.primary }
                 ]}
               >
                 <Text style={[styles.subTypeText, { color: theme.subtext }, activeSubType === type && { color: theme.primary }]}>{t(type)}</Text>
@@ -261,35 +338,9 @@ export default function HomeScreen({ navigation, route }) {
   };
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Header title={t('devotional')} />
-      
-      <View style={styles.searchContainer}>
-        <View style={[styles.searchInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Search size={20} color={theme.primary} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
-            value={query}
-            onChangeText={setQuery}
-            onSubmitEditing={() => loadVideos(query, "All", "All")}
-            placeholder={t('searchPlaceholder') || "Search for divine melodies..."}
-            placeholderTextColor={theme.subtext}
-          />
-          {query.length > 0 ? (
-            <TouchableOpacity onPress={clearSearch}>
-              <X size={20} color={theme.subtext} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity onPress={() => Alert.alert("Voice Search", "Voice search is coming soon! 🙏")}>
-              <Mic size={20} color={theme.subtext} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-
-
       {loading && !refreshing ? (
-        <View style={{ padding: 20 }}>{[1, 2, 3].map((i) => (
+        <View style={{ padding: 20 }}>
+          {[1, 2, 3].map((i) => (
             <View key={i} style={{ marginBottom: 24 }}>
               <Shimmer style={{ height: 220, borderRadius: 24 }} />
               <View style={{ marginTop: 12, flexDirection: 'row', gap: 12 }}>
@@ -332,60 +383,119 @@ export default function HomeScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  searchContainer: { padding: 20, paddingTop: 16, paddingBottom: 12 },
-  searchInputWrapper: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, paddingHorizontal: 16, height: 56, borderWidth: 1 },
-  searchIcon: { marginRight: 12 },
-  searchInput: { flex: 1, fontSize: 16, fontFamily: 'Outfit-SemiBold' },
-  filtersWrapper: { marginBottom: 16 },
-  filterRow: { paddingHorizontal: 20, gap: 10 },
-  categoryChip: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  categoryText: { fontSize: 13, fontFamily: 'Outfit-Bold' },
-  subTypeChip: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12, borderWidth: 1 },
-  subTypeText: { fontSize: 12, fontFamily: 'Outfit-SemiBold' },
-  quoteCard: {
-    margin: 20,
-    marginTop: 0,
-    marginBottom: 24,
-    padding: 20,
-    borderRadius: 24,
-    flexDirection: 'row',
-    gap: 16,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+  headerArea: {
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 0,
   },
-  quoteIconArea: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,179,0,0.1)',
+  headerTitle: { fontSize: 26, fontFamily: 'Outfit-Bold' },
+  headerSub: { fontSize: 13, fontFamily: 'Outfit-Medium', opacity: 0.6 },
+  refreshBtn: { 
+    paddingHorizontal: 12,
+    height: 44, 
+    borderRadius: 14, 
+    backgroundColor: 'rgba(255,255,255,0.03)', 
+    flexDirection: 'row',
+    justifyContent: 'center', 
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)'
+  },
+  searchWrapper: {
+    marginTop: 15,
+    marginHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    height: 60,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  searchIcon: { marginRight: 15 },
+  searchInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 16,
+    fontFamily: 'Outfit-Bold',
+  },
+  quoteCard: {
+    marginHorizontal: 20,
+    marginTop: 15,
+    marginBottom: 5,
+    padding: 16,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  quoteGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  quoteIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,193,7,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 15,
   },
-  quoteTtl: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Black',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 6,
+  quoteContent: {
+    flex: 1,
   },
   quoteText: {
-    fontSize: 15,
-    fontFamily: 'Outfit-SemiBold',
-    lineHeight: 22,
-    fontStyle: 'italic',
+    fontSize: 14,
+    fontFamily: 'Outfit-Bold',
+    lineHeight: 20,
+    color: '#FFF',
+    fontStyle: 'italic'
   },
   quoteAuthor: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Medium',
-    marginTop: 8,
-    opacity: 0.7,
+    fontSize: 10,
+    fontFamily: 'Outfit-Black',
+    marginTop: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    opacity: 0.5,
+    color: '#FFF'
   },
-  listContent: { paddingTop: 8, paddingBottom: 100 },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 80 },
-  emptyText: { fontSize: 16, fontFamily: 'Outfit-SemiBold', marginBottom: 16 },
-  retryBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 16, elevation: 5 },
+  filtersWrapper: {
+    paddingVertical: 5,
+  },
+  filterRow: {
+    paddingHorizontal: 20,
+    gap: 10,
+    paddingBottom: 0,
+  },
+  categoryChip: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  categoryText: {
+    fontSize: 13,
+    fontFamily: 'Outfit-Bold',
+  },
+  subTypeChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  subTypeText: {
+    fontSize: 11,
+    fontFamily: 'Outfit-Bold',
+    textTransform: 'uppercase',
+  },
+  listContent: { paddingBottom: 150 },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 80, paddingHorizontal: 40 },
+  emptyText: { fontSize: 16, fontFamily: 'Outfit-Bold', marginBottom: 20, textAlign: 'center', opacity: 0.5 },
+  retryBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 25, paddingVertical: 14, borderRadius: 16, elevation: 5 },
   retryText: { color: '#FFF', fontSize: 14, fontFamily: 'Outfit-Bold' }
 });

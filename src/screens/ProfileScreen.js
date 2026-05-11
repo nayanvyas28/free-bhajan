@@ -12,6 +12,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useCustomAlert } from '../context/AlertContext';
+import { LinearGradient } from 'expo-linear-gradient';
 import { User, LogOut, Save, ChevronLeft, Info, ChevronRight, Palette, Sun, Moon, Monitor } from 'lucide-react-native';
 
 export default function ProfileScreen({ navigation }) {
@@ -72,27 +73,32 @@ export default function ProfileScreen({ navigation }) {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={{ paddingBottom: 150 }}>
+      <LinearGradient
+        colors={[theme.primary, 'rgba(0,0,0,0)']}
+        style={styles.headerBackground}
+      />
+      
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={28} color={theme.text} />
+          <ChevronLeft size={28} color="#FFF" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>{t('profile')}</Text>
+        <Text style={[styles.headerTitle, { color: '#FFF' }]}>{t('profile')}</Text>
         <View style={{ width: 28 }} />
       </View>
 
       <View style={styles.profileSection}>
-        <View style={[styles.avatarLarge, { backgroundColor: theme.primary }]}>
+        <View style={[styles.avatarLarge, { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', borderWidth: 2 }]}>
           <Text style={styles.avatarText}>
             {profile?.full_name?.charAt(0).toUpperCase() || 'U'}
           </Text>
         </View>
-        <Text style={[styles.phoneText, { color: theme.subtext }]}>{profile?.phone_number}</Text>
+        <Text style={[styles.phoneText, { color: 'rgba(255,255,255,0.6)' }]}>{profile?.phone_number}</Text>
       </View>
 
-      <View style={styles.form}>
+      <View style={styles.card}>
         <Text style={[styles.label, { color: theme.subtext }]}>{t('fullName')}</Text>
-        <View style={[styles.inputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <View style={[styles.inputWrapper, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.05)' }]}>
           <User size={20} color={theme.primary} style={styles.icon} />
           <TextInput
             style={[styles.input, { color: theme.text }]}
@@ -109,11 +115,11 @@ export default function ProfileScreen({ navigation }) {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#FFF" />
+            <ActivityIndicator color="#000" />
           ) : (
             <>
-              <Save size={20} color="#FFF" />
-              <Text style={styles.saveBtnText}>{t('saveChanges')}</Text>
+              <Save size={20} color="#000" />
+              <Text style={[styles.saveBtnText, { color: '#000' }]}>{t('saveChanges')}</Text>
             </>
           )}
         </TouchableOpacity>
@@ -136,11 +142,11 @@ export default function ProfileScreen({ navigation }) {
               onPress={() => setThemeMode(mode.id)}
               style={[
                 styles.themeBtn,
-                { backgroundColor: theme.card, borderColor: theme.border },
-                themeMode === mode.id && { backgroundColor: theme.primary + '15', borderColor: theme.primary }
+                { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' },
+                themeMode === mode.id && { backgroundColor: 'rgba(255,193,7,0.1)', borderColor: theme.primary }
               ]}
             >
-              <mode.icon size={20} color={themeMode === mode.id ? theme.primary : theme.subtext} />
+              <mode.icon size={22} color={themeMode === mode.id ? theme.primary : theme.subtext} />
               <Text style={[
                 styles.themeBtnText, 
                 { color: themeMode === mode.id ? theme.primary : theme.subtext }
@@ -150,7 +156,7 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         <TouchableOpacity 
-          style={[styles.menuItem, { backgroundColor: theme.card, borderColor: theme.border }]}
+          style={[styles.menuItem, { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' }]}
           onPress={() => navigation.navigate('About')}
           activeOpacity={0.7}
         >
@@ -165,7 +171,7 @@ export default function ProfileScreen({ navigation }) {
       </View>
 
       <TouchableOpacity 
-        style={[styles.signOutBtn, { borderColor: '#FF3B30' }]}
+        style={[styles.signOutBtn, { borderColor: 'rgba(255, 59, 48, 0.2)', backgroundColor: 'rgba(255, 59, 48, 0.05)' }]}
         onPress={handleSignOut}
       >
         <LogOut size={20} color="#FF3B30" />
@@ -177,6 +183,14 @@ export default function ProfileScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  headerBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 300,
+    opacity: 0.2,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -185,94 +199,112 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
-  headerTitle: { fontSize: 20, fontFamily: 'Outfit-Bold' },
-  backBtn: { padding: 4 },
+  headerTitle: { fontSize: 22, fontFamily: 'Outfit-Bold' },
+  backBtn: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 22, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
   profileSection: {
     alignItems: 'center',
     marginTop: 20,
-    marginBottom: 40,
+    marginBottom: 30,
   },
   avatarLarge: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    elevation: 8,
+    elevation: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
   },
-  avatarText: { color: '#FFF', fontSize: 40, fontFamily: 'Outfit-Bold' },
-  phoneText: { fontSize: 16, fontFamily: 'Outfit-Medium' },
-  form: { paddingHorizontal: 25 },
-  label: { fontSize: 12, fontFamily: 'Outfit-Bold', marginBottom: 8, marginLeft: 4 },
+  avatarText: { color: '#FFF', fontSize: 48, fontFamily: 'Outfit-Bold' },
+  phoneText: { fontSize: 16, fontFamily: 'Outfit-Bold', letterSpacing: 1 },
+  card: { 
+    marginHorizontal: 20, 
+    padding: 24, 
+    borderRadius: 32, 
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  label: { fontSize: 11, fontFamily: 'Outfit-Black', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1.5, opacity: 0.5 },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 60,
-    borderRadius: 16,
+    height: 64,
+    borderRadius: 20,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    marginBottom: 24,
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   menuContainer: {
     paddingHorizontal: 20,
-    marginTop: 20,
+    marginTop: 30,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
+    gap: 12,
+    marginBottom: 20,
     marginLeft: 4,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: 'Outfit-Bold',
   },
   themeSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
-    gap: 10,
+    marginBottom: 24,
+    gap: 12,
   },
   themeBtn: {
     flex: 1,
-    height: 80,
-    borderRadius: 16,
+    height: 90,
+    borderRadius: 24,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   themeBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'Outfit-Bold',
   },
-  icon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 16, fontFamily: 'Outfit-SemiBold' },
+  icon: { marginRight: 15 },
+  input: { flex: 1, fontSize: 16, fontFamily: 'Outfit-Bold' },
   saveBtn: {
-    height: 60,
-    borderRadius: 16,
+    height: 64,
+    borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    elevation: 4,
+    gap: 12,
+    elevation: 8,
+    shadowColor: '#FFC107',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
   },
-  saveBtnText: { color: '#FFF', fontSize: 16, fontFamily: 'Outfit-Bold' },
+  saveBtnText: { fontSize: 16, fontFamily: 'Outfit-Bold' },
   signOutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    marginTop: 60,
-    marginHorizontal: 25,
-    padding: 16,
-    borderRadius: 16,
+    gap: 12,
+    marginTop: 40,
+    marginHorizontal: 20,
+    height: 64,
+    borderRadius: 20,
     borderWidth: 1,
   },
   signOutText: { color: '#FF3B30', fontSize: 16, fontFamily: 'Outfit-Bold' },
@@ -280,21 +312,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    height: 70,
+    paddingHorizontal: 20,
+    borderRadius: 24,
     borderWidth: 1,
-    marginTop: 12,
   },
   menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 16,
   },
   menuIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },

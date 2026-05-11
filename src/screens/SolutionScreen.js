@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, ActivityIndicator, Image, TextInput } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import Header from '../components/Header';
 import { getSolutions, getCategories } from '../services/youtubeApi';
-import { Lightbulb, PlayCircle, Video, Music, Heart } from 'lucide-react-native';
+import { Lightbulb, PlayCircle, Video, Music, Heart, Search, X } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
 import { Alert } from 'react-native';
 
 export default function SolutionScreen() {
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { playVideo } = usePlayer();
   const [solutions, setSolutions] = useState([]);
   const [categories, setCategories] = useState([{ name: 'All', name_hi: 'सभी' }]);
@@ -20,6 +20,8 @@ export default function SolutionScreen() {
   const [activeType, setActiveType] = useState('video'); // 'video' or 'audio'
   const [expandedId, setExpandedId] = useState(null);
   const [favIds, setFavIds] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredSolutions, setFilteredSolutions] = useState([]);
 
   useEffect(() => {
     fetchCategories();
@@ -48,8 +50,21 @@ export default function SolutionScreen() {
     const cat = activeCategory === 'All' ? null : activeCategory;
     const data = await getSolutions(cat, activeType);
     setSolutions(data);
+    setFilteredSolutions(data);
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredSolutions(solutions);
+    } else {
+      const filtered = solutions.filter(item => 
+        item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredSolutions(filtered);
+    }
+  }, [searchQuery, solutions]);
 
   const loadFavorites = async () => {
     const favs = await getFavorites();
@@ -174,6 +189,24 @@ export default function SolutionScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Header title={t('solutionTitle') || 'Spiritual Solutions'} />
       
+      <View style={styles.searchSection}>
+        <View style={[styles.searchInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Search size={20} color={theme.primary} style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={t('searchPlaceholder')}
+            placeholderTextColor={theme.subtext}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <X size={20} color={theme.subtext} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+      
       <View style={styles.typeTabs}>
         {[
           { id: 'video', label: t('upayeVideo'), icon: Video },
@@ -229,7 +262,7 @@ export default function SolutionScreen() {
         </View>
       ) : (
         <FlatList
-          data={solutions}
+          data={filteredSolutions}
           renderItem={renderSolution}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
@@ -244,45 +277,80 @@ export default function SolutionScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  typeTabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  typeTab: { flex: 1, paddingVertical: 15, alignItems: 'center' },
-  typeTabText: { fontSize: 14, fontFamily: 'Outfit-Bold', letterSpacing: 0.5 },
-  catWrapper: { paddingVertical: 12 },
+  searchSection: { paddingHorizontal: 20, paddingTop: 10, marginBottom: 5 },
+  searchInputWrapper: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    borderRadius: 20, 
+    paddingHorizontal: 18, 
+    height: 60, 
+    borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  searchIcon: { marginRight: 15 },
+  searchInput: { flex: 1, fontSize: 16, fontFamily: 'Outfit-Bold' },
+  typeTabs: { 
+    flexDirection: 'row', 
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 10,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 20,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)'
+  },
+  typeTab: { 
+    flex: 1, 
+    height: 44, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    borderRadius: 14,
+  },
+  typeTabText: { fontSize: 12, fontFamily: 'Outfit-Bold', letterSpacing: 0.5, textTransform: 'uppercase' },
+  catWrapper: { paddingVertical: 10 },
   catContent: { paddingHorizontal: 20, gap: 10 },
-  catChip: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  catChip: { 
+    paddingHorizontal: 18, 
+    paddingVertical: 10, 
+    borderRadius: 14, 
+    borderWidth: 1 
+  },
   catText: { fontSize: 13, fontFamily: 'Outfit-Bold' },
-  list: { padding: 16, paddingBottom: 100 },
+  list: { paddingHorizontal: 20, paddingBottom: 150 },
   card: {
     padding: 16,
-    borderRadius: 20,
+    borderRadius: 28,
     marginBottom: 16,
     borderWidth: 1,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  heartBtn: { padding: 4 },
-  iconBox: { borderRadius: 10, padding: 6 },
-  badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  badgeText: { fontSize: 10, fontFamily: 'Outfit-Black', letterSpacing: 0.5, textTransform: 'uppercase' },
-  contentRow: { flexDirection: 'row', gap: 14 },
+  heartBtn: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconBox: { borderRadius: 8, padding: 6, backgroundColor: 'rgba(255,193,7,0.1)' },
+  badge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(255,193,7,0.05)' },
+  badgeText: { fontSize: 9, fontFamily: 'Outfit-Black', letterSpacing: 1, textTransform: 'uppercase' },
+  contentRow: { flexDirection: 'row', gap: 12 },
   thumbnailWrapper: {
-    width: 100,
-    height: 100,
-    borderRadius: 14,
+    width: 90,
+    height: 90,
+    borderRadius: 18,
     overflow: 'hidden',
     position: 'relative',
+    backgroundColor: '#000'
   },
   thumbnail: { 
     width: '100%', 
-    height: '140%', 
-    position: 'absolute',
-    top: 0,
-    backgroundColor: '#000' 
+    height: '100%', 
   },
   playOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -291,19 +359,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   textContainer: { flex: 1, gap: 4 },
-  title: { fontSize: 16, fontFamily: 'Outfit-Bold', lineHeight: 22 },
-  description: { fontSize: 13, fontFamily: 'Outfit-Medium', lineHeight: 18 },
-  readMore: { fontSize: 12, fontFamily: 'Outfit-Bold', marginTop: 4 },
+  title: { fontSize: 15, fontFamily: 'Outfit-Bold', lineHeight: 20, color: '#FFF' },
+  description: { fontSize: 12, fontFamily: 'Outfit-Medium', lineHeight: 18, opacity: 0.5, color: '#FFF' },
+  readMore: { fontSize: 11, fontFamily: 'Outfit-Bold', marginTop: 2 },
   videoBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 16,
+    marginTop: 15,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    backgroundColor: 'rgba(255,193,7,0.05)',
+    borderColor: 'rgba(255,193,7,0.1)',
   },
-  videoBtnText: { fontSize: 13, fontFamily: 'Outfit-Bold' },
+  videoBtnText: { fontSize: 12, fontFamily: 'Outfit-Bold', letterSpacing: 0.5 },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  empty: { textAlign: 'center', marginTop: 40, fontSize: 15, fontFamily: 'Outfit-Medium' }
+  empty: { textAlign: 'center', marginTop: 60, fontSize: 15, fontFamily: 'Outfit-Bold', opacity: 0.2 }
 });

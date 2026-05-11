@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Share } from 'react-native';
 import { Play, Heart, Music, Image as ImageIcon, Share2 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const [imgError, setImgError] = useState(false);
   const [loading, setLoading] = useState(true);
   
@@ -66,7 +68,9 @@ const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
         )}
         
         <View style={styles.playOverlay}>
-          {isAudio ? <Music size={24} color="#FFB300" /> : <Play size={24} color="#FFB300" fill="#FFB300" />}
+          <View style={styles.playCircle}>
+            {isAudio ? <Music size={28} color="#FFF" /> : <Play size={28} color="#FFF" fill="#FFF" />}
+          </View>
         </View>
 
         {isAudio && (
@@ -109,27 +113,28 @@ const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
 const styles = StyleSheet.create({
   card: {
     marginHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 20,
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    elevation: 4,
+    elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
   thumbnailContainer: {
     position: 'relative',
-    height: 180,
+    height: 200,
     width: '100%',
-    overflow: 'hidden', // Crucial to clip the bottom
+    overflow: 'hidden',
+    backgroundColor: '#000',
   },
   thumbnail: {
     width: '100%',
-    height: '150%', // Make the image taller than container to allow top-aligning
+    height: '140%',
     position: 'absolute',
-    top: 0, // Force top alignment
+    top: 0,
   },
   placeholder: {
     ...StyleSheet.absoluteFillObject,
@@ -140,27 +145,39 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
   fallbackText: {
     color: '#6B7280',
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: 'Outfit-Bold',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 2,
   },
   playOverlay: {
     position: 'absolute',
-    bottom: 12,
-    right: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.8)',
-    borderRadius: 16,
-    padding: 10,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  playCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 179, 0, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backdropFilter: 'blur(10px)',
   },
   infoContainer: {
-    padding: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -169,15 +186,24 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
+  subType: {
+    fontSize: 9,
+    fontFamily: 'Outfit-Black',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
   title: {
     fontSize: 16,
     fontFamily: 'Outfit-Bold',
     lineHeight: 22,
+    letterSpacing: -0.2,
   },
   channelTitle: {
     fontSize: 12,
     fontFamily: 'Outfit-Medium',
     marginTop: 4,
+    opacity: 0.5,
   },
   actionRow: {
     flexDirection: 'row',
@@ -185,21 +211,31 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionBtn: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
   },
   audioBadge: {
     position: 'absolute',
-    top: 12,
-    left: 12,
-    backgroundColor: 'rgba(255, 179, 0, 0.2)',
+    top: 15,
+    left: 15,
+    backgroundColor: 'rgba(0,0,0,0.7)',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#FFB300',
+    borderColor: 'rgba(255, 193, 7, 0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   audioBadgeText: {
-    color: '#FFB300',
+    color: '#FFC107',
     fontSize: 9,
     fontFamily: 'Outfit-Black',
     letterSpacing: 1,

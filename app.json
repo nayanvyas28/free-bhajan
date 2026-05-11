@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Drishti Bhajan",
+    "name": "MantraPuja Bhajan",
     "slug": "bhajan-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -21,7 +21,7 @@
         "backgroundColor": "#0F0F13"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.nayan.drishtibhajan",
+      "package": "mantra.puja.bhajan",
       "usesCleartextTraffic": true,
       "permissions": ["INTERNET"]
     },
