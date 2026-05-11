@@ -104,10 +104,13 @@ const styles = StyleSheet.create({
     position: 'relative',
     height: 180,
     width: '100%',
+    overflow: 'hidden', // Crucial to clip the bottom
   },
   thumbnail: {
     width: '100%',
-    height: '100%',
+    height: '150%', // Make the image taller than container to allow top-aligning
+    position: 'absolute',
+    top: 0, // Force top alignment
   },
   placeholder: {
     ...StyleSheet.absoluteFillObject,

@@ -133,7 +133,7 @@ export default function SolutionScreen() {
               style={styles.thumbnailWrapper}
               onPress={() => handleSolutionPress(item)}
             >
-              <Image source={{ uri: item.image_url }} style={styles.thumbnail} />
+              <Image source={{ uri: item.image_url }} style={styles.thumbnail} resizeMode="cover" />
               <View style={styles.playOverlay}>
                 <PlayCircle size={24} color="#FFF" />
               </View>
@@ -276,7 +276,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  thumbnail: { width: '100%', height: '100%', backgroundColor: '#000' },
+  thumbnail: { 
+    width: '100%', 
+    height: '140%', 
+    position: 'absolute',
+    top: 0,
+    backgroundColor: '#000' 
+  },
   playOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.3)',

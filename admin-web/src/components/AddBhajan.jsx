@@ -263,6 +263,7 @@ export default function AddBhajan() {
                 >
                   <option>Bhajan</option>
                   <option>Mantra</option>
+                  <option>Aarti</option>
                   <option>Song</option>
                 </select>
                 <div className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">

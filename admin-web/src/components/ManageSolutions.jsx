@@ -400,7 +400,7 @@ export default function ManageSolutions() {
               
               {item.image_url && (
                 <div className="relative w-full h-40 mb-4 rounded-2xl overflow-hidden">
-                  <img src={item.image_url} alt={item.title} className="w-full h-full object-cover" />
+                  <img src={item.image_url} alt={item.title} className="w-full h-full object-cover object-top" />
                   {item.url && (item.type === 'video') && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                       <Video size={32} className="text-white" />

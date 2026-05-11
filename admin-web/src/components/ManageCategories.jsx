@@ -180,7 +180,7 @@ export default function ManageCategories() {
                 <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Live Preview</label>
                 <div className="aspect-[4/5] bg-slate-900 rounded-3xl border-2 border-dashed border-slate-800 overflow-hidden flex items-center justify-center relative group">
                   {formData.image_url ? (
-                    <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover" onError={(e) => e.target.src='https://via.placeholder.com/400x500?text=Invalid+Image+URL'} />
+                    <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover object-top" onError={(e) => e.target.src='https://via.placeholder.com/400x500?text=Invalid+Image+URL'} />
                   ) : (
                     <div className="text-center p-6">
                       <ImageIcon size={40} className="text-slate-700 mx-auto mb-2" />
@@ -231,7 +231,7 @@ export default function ManageCategories() {
                 {categories.filter(c => (c.type || 'deity') === type).map(item => (
                   <div key={item.id} className="bg-[#1E293B] rounded-[2.5rem] border border-slate-800 overflow-hidden hover:border-amber-500/50 hover:shadow-2xl hover:shadow-amber-500/10 transition-all group">
                     <div className="h-56 bg-slate-900 relative">
-                      <img src={item.image_url} alt={item.name} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" />
+                      <img src={item.image_url} alt={item.name} className="w-full h-full object-cover object-top opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" />
                       <div className="absolute inset-0 bg-gradient-to-t from-[#1E293B] via-[#1E293B]/20 to-transparent" />
                       
                       <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all">

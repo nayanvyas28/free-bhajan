@@ -27,7 +27,7 @@ export default function HomeScreen({ navigation, route }) {
   const { theme } = useTheme();
   const { t, language } = useLanguage();
   
-  const SUB_TYPES = ["All", "Bhajan", "Mantra"];
+  const SUB_TYPES = ["All", "Bhajan", "Mantra", "Aarti"];
   
   const [videos, setVideos] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);

@@ -227,7 +227,7 @@ export default function BhajanList() {
                   ) : (
                     <div className="flex items-center gap-5">
                       <div className="relative">
-                        <img src={bhajan.thumbnail} className="w-16 h-16 rounded-2xl object-cover bg-slate-900 shadow-xl group-hover:scale-105 transition-transform" />
+                        <img src={bhajan.thumbnail} className="w-16 h-16 rounded-2xl object-cover object-top bg-slate-900 shadow-xl group-hover:scale-105 transition-transform" />
                         <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10" />
                         <div className="absolute -top-2 -right-2 p-1.5 bg-[#0F172A] rounded-lg border border-slate-800">
                           {bhajan.type === 'youtube' ? (
@@ -262,6 +262,7 @@ export default function BhajanList() {
                     >
                       <option>Bhajan</option>
                       <option>Mantra</option>
+                      <option>Aarti</option>
                       <option>Song</option>
                     </select>
                   ) : (
