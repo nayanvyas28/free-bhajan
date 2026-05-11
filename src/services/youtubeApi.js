@@ -118,6 +118,23 @@ export const getSolutions = async (category = null, type = null) => {
   }
 };
 
+export const getDailyQuote = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('quotes')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    if (error) throw error;
+    return data && data.length > 0 ? data[0] : null;
+  } catch (error) {
+    console.error('Daily Quote Error:', error);
+    return null;
+  }
+};
+
 const SEARCH_MAP = {
   'shiv': ['shiv', 'shiva', 'mahadev', 'bholenath', 'शिव'],
   'shiva': ['shiv', 'shiva', 'mahadev', 'bholenath', 'शिव'],

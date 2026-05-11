@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, Edit2, Loader2, Save, X, Flower2, Image as ImageIcon, Stars, Eye, EyeOff, Lightbulb } from 'lucide-react';
+import { Plus, Trash2, Edit2, Loader2, Save, X, Flower2, Image as ImageIcon, Stars, Eye, EyeOff, Lightbulb, Languages, Sparkles } from 'lucide-react';
 
 export default function ManageCategories() {
   const [categories, setCategories] = useState([]);
@@ -10,10 +10,29 @@ export default function ManageCategories() {
   
   const [formData, setFormData] = useState({
     name: '',
+    name_hi: '',
     image_url: '',
     type: 'deity',
     is_visible: true
   });
+
+  const handleAutoTranslate = async () => {
+    if (!formData.name) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(formData.name)}&langpair=en|hi`);
+      const data = await res.json();
+      if (data.responseData.translatedText) {
+        // Cleaning up the translated text (sometimes it adds quotes or strange chars)
+        let translated = data.responseData.translatedText;
+        setFormData(prev => ({ ...prev, name_hi: translated }));
+      }
+    } catch (e) {
+      console.error("Translation Error:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchCategories();
@@ -51,7 +70,7 @@ export default function ManageCategories() {
         alert('New category added!');
       }
       
-      setFormData({ name: '', image_url: '', type: 'deity' });
+      setFormData({ name: '', name_hi: '', image_url: '', type: 'deity' });
       setEditingId(null);
       setShowAddForm(false);
       fetchCategories();
@@ -65,6 +84,7 @@ export default function ManageCategories() {
   const handleEdit = (item) => {
     setFormData({
       name: item.name,
+      name_hi: item.name_hi || '',
       image_url: item.image_url,
       type: item.type || 'deity',
       is_visible: item.is_visible !== false
@@ -120,14 +140,39 @@ export default function ManageCategories() {
               <div className="space-y-6 md:col-span-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Category Name</label>
-                    <input 
-                      required
-                      className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-amber-500 outline-none transition-all font-bold"
-                      placeholder="e.g. Mahadev / Rahu Dosh"
-                      value={formData.name}
-                      onChange={e => setFormData({...formData, name: e.target.value})}
-                    />
+                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Category Name (English)</label>
+                    <div className="relative">
+                      <input 
+                        required
+                        className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-amber-500 outline-none transition-all font-bold"
+                        placeholder="e.g. Mahadev / Krishna"
+                        value={formData.name}
+                        onChange={e => setFormData({...formData, name: e.target.value})}
+                      />
+                      <button 
+                        type="button"
+                        onClick={handleAutoTranslate}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-500/10 text-indigo-400 rounded-xl hover:bg-indigo-500 hover:text-white transition-all"
+                        title="Auto Translate to Hindi"
+                      >
+                        <Sparkles size={18} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">नाम (हिंदी में)</label>
+                    <div className="relative">
+                      <input 
+                        required
+                        className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl pl-14 pr-6 py-4 text-white focus:border-amber-500 outline-none transition-all font-bold"
+                        placeholder="जैसे: महादेव / कृष्ण"
+                        value={formData.name_hi}
+                        onChange={e => setFormData({...formData, name_hi: e.target.value})}
+                      />
+                      <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500">
+                        <Languages size={20} />
+                      </div>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Section Type</label>

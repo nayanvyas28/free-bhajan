@@ -7,6 +7,7 @@ import { Play, Pause, X, ChevronDown, SkipBack, SkipForward, List } from 'lucide
 import { useVideoPlayer, VideoView } from 'expo-video';
 import YoutubeIframe from 'react-native-youtube-iframe';
 import { usePlayer } from '../context/PlayerContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScrollView } from 'react-native';
@@ -15,6 +16,7 @@ const { height, width } = Dimensions.get('window');
 
 export default function GlobalPlayer() {
   const { theme, isDarkMode } = useTheme();
+  const { t } = useLanguage();
   const { currentVideo, isPlaying, pauseVideo, resumeVideo, closePlayer, playNext, playPrev, queue, playVideo } = usePlayer();
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -395,7 +397,7 @@ export default function GlobalPlayer() {
             <TouchableOpacity onPress={toggleExpand} style={styles.headerBtn}>
               <ChevronDown color={theme.text} size={30} />
             </TouchableOpacity>
-            <Text style={[styles.headerTtl, { color: theme.text }]}>{isAudioMode ? 'Now Playing' : 'Watching'}</Text>
+            <Text style={[styles.headerTtl, { color: theme.text }]}>{isAudioMode ? t('nowPlaying') : t('watching')}</Text>
             <TouchableOpacity onPress={handleClose} style={styles.headerBtn}>
               <X color={theme.text} size={26} />
             </TouchableOpacity>
@@ -518,7 +520,7 @@ export default function GlobalPlayer() {
         <Animated.View style={[styles.miniBar, { opacity: expandAnim.interpolate({ inputRange: [0, 0.3], outputRange: [1, 0] }) }]} pointerEvents={isExpanded ? 'none' : 'auto'}>
           <TouchableOpacity activeOpacity={1} onPress={toggleExpand} style={styles.miniContent}>
             {thumbnail ? <Image source={{ uri: thumbnail }} style={styles.miniArt} /> : <View style={[styles.miniArt, { backgroundColor: theme.primary, justifyContent: 'center', alignItems: 'center' }]}><Text>🎵</Text></View>}
-            <View style={{ flex: 1, marginLeft: 14 }}><Text style={[styles.miniTtl, { color: theme.text }]} numberOfLines={1}>{title}</Text><Text style={styles.miniSts}>{isBuffering ? 'Connecting...' : isPlaying ? 'Playing' : 'Paused'}</Text></View>
+            <View style={{ flex: 1, marginLeft: 14 }}><Text style={[styles.miniTtl, { color: theme.text }]} numberOfLines={1}>{title}</Text><Text style={styles.miniSts}>{isBuffering ? t('connecting') : isPlaying ? t('playing') : t('paused')}</Text></View>
             <TouchableOpacity onPress={() => isPlaying ? pauseVideo() : resumeVideo()}>{isPlaying ? <Pause size={26} color={theme.primary} /> : <Play size={26} color={theme.primary} />}</TouchableOpacity>
           </TouchableOpacity>
         </Animated.View>

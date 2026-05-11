@@ -11,20 +11,39 @@ import {
   ScrollView,
   Alert
 } from 'react-native';
-import { Search, X, RefreshCcw } from 'lucide-react-native';
-import { searchBhajans, getCuratedBhajans, getCategories } from '../services/youtubeApi';
+import { Search, X, RefreshCcw, Mic } from 'lucide-react-native';
+import { searchBhajans, getCuratedBhajans, getCategories, getDailyQuote } from '../services/youtubeApi';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
 import { useTheme } from '../context/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 import VideoCard from '../components/VideoCard';
 import Shimmer from '../components/SkeletonLoader';
 import Header from '../components/Header';
 import { usePlayer } from '../context/PlayerContext';
 import { useLanguage } from '../context/LanguageContext';
 
-const DEFAULT_CATEGORIES = ["All", "Krishna", "Shiv", "Ram", "Ganesh", "Devi", "Hanuman"];
+const DEFAULT_CATEGORIES = [
+  { name: "All", name_hi: "सभी" },
+  { name: "Krishna", name_hi: "कृष्ण" },
+  { name: "Shiv", name_hi: "शिव" },
+  { name: "Ram", name_hi: "राम" },
+  { name: "Ganesh", name_hi: "गणेश" },
+  { name: "Devi", name_hi: "देवी" },
+  { name: "Hanuman", name_hi: "हनुमान" }
+];
+
+const DIVINE_QUOTES = [
+  { text: "The soul is neither born, nor does it ever die.", author: "Bhagavad Gita" },
+  { text: "Change is the law of the universe. You can be a millionaire, or a pauper in an instant.", author: "Lord Krishna" },
+  { text: "Set your heart upon your work, but never its reward.", author: "Bhagavad Gita" },
+  { text: "When meditation is mastered, the mind is unwavering like the flame of a candle in a windless place.", author: "Lord Krishna" },
+  { text: "A man is made by his belief. As he believes, so he is.", author: "Bhagavad Gita" },
+  { text: "The power of God is with you at all times; through the activities of mind, senses, breathing, and emotions.", author: "Lord Krishna" },
+  { text: "You have a right to perform your prescribed duties, but you are not entitled to the fruits of your actions.", author: "Lord Krishna" }
+];
 
 export default function HomeScreen({ navigation, route }) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t, language } = useLanguage();
   
   const SUB_TYPES = ["All", "Bhajan", "Mantra", "Aarti"];
@@ -37,15 +56,19 @@ export default function HomeScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [favIds, setFavIds] = useState([]);
+  const [dailyQuote, setDailyQuote] = useState(null);
   const { playVideo } = usePlayer();
+
+  const fetchDailyQuote = async () => {
+    const quote = await getDailyQuote();
+    if (quote) setDailyQuote(quote);
+  };
 
   const fetchDeities = async () => {
     try {
       const data = await getCategories();
       if (data && data.length > 0) {
-        // Show "All" followed by all categories from DB (Deities + Dosh)
-        const dbNames = data.map(c => c.name);
-        setCategories(["All", ...dbNames]);
+        setCategories([{ name: "All", name_hi: t('all') }, ...data]);
       } else {
         setCategories(DEFAULT_CATEGORIES);
       }
@@ -81,16 +104,18 @@ export default function HomeScreen({ navigation, route }) {
 
   useEffect(() => {
     fetchDeities();
+    fetchDailyQuote();
     loadVideos('', activeCategory, activeSubType);
     loadFavorites();
   }, []);
 
   useEffect(() => {
     if (route.params?.category) {
-      setActiveCategory(route.params.category);
+      const catName = typeof route.params.category === 'string' ? route.params.category : route.params.category.name;
+      setActiveCategory(catName);
       setActiveSubType("All");
       setQuery('');
-      loadVideos('', route.params.category, "All");
+      loadVideos('', catName, "All");
     } else if (route.params?.searchQuery) {
       setQuery(route.params.searchQuery);
       setActiveCategory("All");
@@ -104,10 +129,11 @@ export default function HomeScreen({ navigation, route }) {
     loadVideos('', activeCategory, activeSubType);
   };
 
-  const handleCategoryPress = (category) => {
-    setActiveCategory(category);
+  const handleCategoryPress = (cat) => {
+    const catName = typeof cat === 'string' ? cat : cat.name;
+    setActiveCategory(catName);
     setQuery('');
-    loadVideos('', category, activeSubType);
+    loadVideos('', catName, activeSubType);
   };
 
   const handleSubTypePress = (subType) => {
@@ -130,8 +156,7 @@ export default function HomeScreen({ navigation, route }) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchDeities();
-    await loadVideos(query, activeCategory, activeSubType);
+    await Promise.all([fetchDeities(), fetchDailyQuote(), loadVideos(query, activeCategory, activeSubType)]);
     setRefreshing(false);
   }, [query, activeCategory, activeSubType]);
 
@@ -170,7 +195,70 @@ export default function HomeScreen({ navigation, route }) {
       }}
     />
   );
+  const renderHeader = () => {
+    const today = new Date().getDate();
+    // Fallback to static if DB is empty
+    const displayQuote = dailyQuote ? {
+      text: language === 'hi' ? dailyQuote.text_hi : dailyQuote.text_en,
+      author: language === 'hi' ? dailyQuote.author_hi : dailyQuote.author_en
+    } : DIVINE_QUOTES[today % DIVINE_QUOTES.length];
 
+    return (
+      <View>
+        {!query && (
+          <LinearGradient 
+            colors={isDarkMode ? ['#1E293B', '#0F172A'] : ['#FFF8E1', '#FFF']} 
+            style={styles.quoteCard}
+          >
+            <View style={styles.quoteIconArea}>
+              <Text style={{ fontSize: 24 }}>✨</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.quoteTtl, { color: theme.primary }]}>{t('divineQuoteTitle')}</Text>
+              <Text style={[styles.quoteText, { color: theme.text }]}>"{displayQuote.text}"</Text>
+              <Text style={[styles.quoteAuthor, { color: theme.subtext }]}>— {displayQuote.author}</Text>
+            </View>
+          </LinearGradient>
+        )}
+
+        <View style={styles.filtersWrapper}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            {categories.map((cat) => (
+              <TouchableOpacity
+                key={typeof cat === 'string' ? cat : cat.id || cat.name}
+                onPress={() => handleCategoryPress(cat)}
+                style={[
+                  styles.categoryChip,
+                  { backgroundColor: theme.card, borderColor: theme.border },
+                  activeCategory === (typeof cat === 'string' ? cat : cat.name) && { backgroundColor: theme.primary, borderColor: theme.primary }
+                ]}
+              >
+                <Text style={[styles.categoryText, { color: theme.subtext }, activeCategory === (typeof cat === 'string' ? cat : cat.name) && { color: '#FFF' }]}>
+                  {language === 'hi' && cat.name_hi ? cat.name_hi : t(typeof cat === 'string' ? cat : cat.name)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterRow, { marginTop: 10 }]}>
+            {SUB_TYPES.map((type) => (
+              <TouchableOpacity
+                key={type}
+                onPress={() => handleSubTypePress(type)}
+                style={[
+                  styles.subTypeChip,
+                  { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: theme.border },
+                  activeSubType === type && { backgroundColor: 'rgba(255,179,0,0.1)', borderColor: theme.primary }
+                ]}
+              >
+                <Text style={[styles.subTypeText, { color: theme.subtext }, activeSubType === type && { color: theme.primary }]}>{t(type)}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    );
+  };
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Header title={t('devotional')} />
@@ -186,47 +274,19 @@ export default function HomeScreen({ navigation, route }) {
             placeholder={t('searchPlaceholder') || "Search for divine melodies..."}
             placeholderTextColor={theme.subtext}
           />
-          {query.length > 0 && (
+          {query.length > 0 ? (
             <TouchableOpacity onPress={clearSearch}>
               <X size={20} color={theme.subtext} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={() => Alert.alert("Voice Search", "Voice search is coming soon! 🙏")}>
+              <Mic size={20} color={theme.subtext} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      <View style={styles.filtersWrapper}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          {categories.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              onPress={() => handleCategoryPress(cat)}
-              style={[
-                styles.categoryChip,
-                { backgroundColor: theme.card, borderColor: theme.border },
-                activeCategory === cat && { backgroundColor: theme.primary, borderColor: theme.primary }
-              ]}
-            >
-              <Text style={[styles.categoryText, { color: theme.subtext }, activeCategory === cat && { color: '#FFF' }]}>{t(cat)}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterRow, { marginTop: 10 }]}>
-          {SUB_TYPES.map((type) => (
-            <TouchableOpacity
-              key={type}
-              onPress={() => handleSubTypePress(type)}
-              style={[
-                styles.subTypeChip,
-                { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: theme.border },
-                activeSubType === type && { backgroundColor: 'rgba(255,179,0,0.1)', borderColor: theme.primary }
-              ]}
-            >
-              <Text style={[styles.subTypeText, { color: theme.subtext }, activeSubType === type && { color: theme.primary }]}>{t(type)}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
 
       {loading && !refreshing ? (
         <View style={{ padding: 20 }}>{[1, 2, 3].map((i) => (
@@ -247,6 +307,7 @@ export default function HomeScreen({ navigation, route }) {
           data={videos}
           keyExtractor={(item, index) => (item.id?.videoId || item.id || index.toString())}
           renderItem={renderItem}
+          ListHeaderComponent={renderHeader}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.primary]} />
@@ -281,6 +342,47 @@ const styles = StyleSheet.create({
   categoryText: { fontSize: 13, fontFamily: 'Outfit-Bold' },
   subTypeChip: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12, borderWidth: 1 },
   subTypeText: { fontSize: 12, fontFamily: 'Outfit-SemiBold' },
+  quoteCard: {
+    margin: 20,
+    marginTop: 0,
+    marginBottom: 24,
+    padding: 20,
+    borderRadius: 24,
+    flexDirection: 'row',
+    gap: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  quoteIconArea: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,179,0,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quoteTtl: {
+    fontSize: 12,
+    fontFamily: 'Outfit-Black',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  quoteText: {
+    fontSize: 15,
+    fontFamily: 'Outfit-SemiBold',
+    lineHeight: 22,
+    fontStyle: 'italic',
+  },
+  quoteAuthor: {
+    fontSize: 12,
+    fontFamily: 'Outfit-Medium',
+    marginTop: 8,
+    opacity: 0.7,
+  },
   listContent: { paddingTop: 8, paddingBottom: 100 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 80 },
   emptyText: { fontSize: 16, fontFamily: 'Outfit-SemiBold', marginBottom: 16 },

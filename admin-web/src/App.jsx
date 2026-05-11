@@ -10,7 +10,8 @@ import {
   FileSpreadsheet,
   Lightbulb,
   Tags,
-  Loader2
+  Loader2,
+  Quote
 } from 'lucide-react';
 
 import { supabase } from './lib/supabase';
@@ -21,6 +22,7 @@ import BhajanList from './components/BhajanList';
 import ExcelImport from './components/ExcelImport';
 import ManageSolutions from './components/ManageSolutions';
 import ManageCategories from './components/ManageCategories';
+import ManageQuotes from './components/ManageQuotes';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -74,6 +76,7 @@ function App() {
             <SidebarLink to="/add" icon={<PlusCircle size={22} />} label="Add Content" />
             <SidebarLink to="/categories" icon={<Tags size={22} />} label="Manage Categories" />
             <SidebarLink to="/upaye" icon={<Lightbulb size={22} />} label="Manage Upaye" />
+            <SidebarLink to="/quotes" icon={<Quote size={22} />} label="Daily Quotes" />
             <SidebarLink to="/import" icon={<FileSpreadsheet size={22} />} label="Bulk Import" />
             <SidebarLink to="/list" icon={<ListMusic size={22} />} label="Manage Library" />
           </nav>
@@ -112,6 +115,7 @@ function App() {
               <Route path="/add" element={<AddBhajan />} />
               <Route path="/categories" element={<ManageCategories />} />
               <Route path="/upaye" element={<ManageSolutions />} />
+              <Route path="/quotes" element={<ManageQuotes />} />
               <Route path="/import" element={<ExcelImport />} />
               <Route path="/list" element={<BhajanList />} />
               <Route path="*" element={<Navigate to="/" replace />} />

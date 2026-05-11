@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Linking } 
 import { useTheme } from '../context/ThemeContext';
 import { ChevronLeft, Info, Globe, MessageCircle, Star, Music } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function AboutScreen({ navigation }) {
   const { theme } = useTheme();

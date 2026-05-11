@@ -1,29 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions, ActivityIndicator, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions, ActivityIndicator, ScrollView, TextInput, Alert } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import Header from '../components/Header';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getCategories, searchBhajans } from '../services/youtubeApi';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
-import { Flower, Stars, Search, X } from 'lucide-react-native';
+import { Flower, Stars, Search, X, Calendar, BookOpen } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import VideoCard from '../components/VideoCard';
 
 const { width } = Dimensions.get('window');
 
 const DEFAULT_CATEGORIES = [
-  { id: '1', name: 'Krishna', image_url: 'https://img.freepik.com/free-photo/view-divine-lord-krishna_23-2151127025.jpg', type: 'deity' },
-  { id: '2', name: 'Shiv', image_url: 'https://img.freepik.com/free-photo/lord-shiva-abstract-representation_23-2151048451.jpg', type: 'deity' },
-  { id: '3', name: 'Ram', image_url: 'https://img.freepik.com/free-photo/view-divine-lord-rama_23-2151127027.jpg', type: 'deity' },
-  { id: '4', name: 'Hanuman', image_url: 'https://img.freepik.com/free-photo/view-divine-lord-hanuman_23-2151127019.jpg', type: 'deity' },
-  { id: '5', name: 'Mangal Dosh', image_url: 'https://img.freepik.com/free-photo/astrology-concept-with-planets_23-2149116174.jpg', type: 'dosh' },
-  { id: '6', name: 'Shani Dosh', image_url: 'https://img.freepik.com/free-photo/astrology-concept-with-planets_23-2149116174.jpg', type: 'dosh' },
+  { id: '1', name: 'Krishna', name_hi: 'कृष्ण', image_url: 'https://img.freepik.com/free-photo/view-divine-lord-krishna_23-2151127025.jpg', type: 'deity' },
+  { id: '2', name: 'Shiv', name_hi: 'शिव', image_url: 'https://img.freepik.com/free-photo/lord-shiva-abstract-representation_23-2151048451.jpg', type: 'deity' },
+  { id: '3', name: 'Ram', name_hi: 'राम', image_url: 'https://img.freepik.com/free-photo/view-divine-lord-rama_23-2151127027.jpg', type: 'deity' },
+  { id: '4', name: 'Hanuman', name_hi: 'हनुमान', image_url: 'https://img.freepik.com/free-photo/view-divine-lord-hanuman_23-2151127019.jpg', type: 'deity' },
+  { id: '5', name: 'Mangal Dosh', name_hi: 'मंगल दोष', image_url: 'https://img.freepik.com/free-photo/astrology-concept-with-planets_23-2149116174.jpg', type: 'dosh' },
+  { id: '6', name: 'Shani Dosh', name_hi: 'शनि दोष', image_url: 'https://img.freepik.com/free-photo/astrology-concept-with-planets_23-2149116174.jpg', type: 'dosh' },
 ];
 
 export default function ExploreScreen({ navigation }) {
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { playVideo } = usePlayer();
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [loading, setLoading] = useState(true);
@@ -121,7 +121,7 @@ export default function ExploreScreen({ navigation }) {
                 colors={['transparent', 'rgba(0,0,0,0.8)']}
                 style={styles.overlay}
               >
-                <Text style={styles.name}>{t(item.name)}</Text>
+                <Text style={styles.name}>{language === 'hi' && item.name_hi ? item.name_hi : t(item.name)}</Text>
                 <Text style={styles.subtext}>{type === 'deity' ? t('devotionalSelection') : t('astrologicalGuide')}</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -174,7 +174,7 @@ export default function ExploreScreen({ navigation }) {
                       >
                         <Image source={{ uri: item.image_url }} style={styles.image} />
                         <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.overlay}>
-                          <Text style={styles.name}>{t(item.name)}</Text>
+                          <Text style={styles.name}>{language === 'hi' && item.name_hi ? item.name_hi : t(item.name)}</Text>
                         </LinearGradient>
                       </TouchableOpacity>
                     ))}
@@ -198,6 +198,24 @@ export default function ExploreScreen({ navigation }) {
           ) : (
             <>
               {renderSection('deity', t('deities'), <Flower size={20} color="#FFB300" />)}
+              
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <BookOpen size={20} color="#FFB300" />
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('spiritualTools')}</Text>
+                </View>
+                <View style={styles.toolRow}>
+                  <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => Alert.alert(t('comingSoon'), t('festivalCalendar') + " is coming soon! 🙏")}>
+                    <Calendar size={28} color={theme.primary} />
+                    <Text style={[styles.toolText, { color: theme.text }]}>{t('festivalCalendar')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => navigation.navigate('HomeTab', { searchQuery: 'Aarti' })}>
+                    <BookOpen size={28} color={theme.primary} />
+                    <Text style={[styles.toolText, { color: theme.text }]}>{t('aartiSangrah')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               {renderSection('dosh', t('kundliDosh'), <Stars size={20} color="#FFB300" />)}
             </>
           )}
@@ -252,5 +270,23 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textTransform: 'uppercase',
     opacity: 0.8
+  },
+  toolRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 8,
+  },
+  toolCard: {
+    flex: 1,
+    padding: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 12,
+  },
+  toolText: {
+    fontSize: 14,
+    fontFamily: 'Outfit-Bold',
+    textAlign: 'center',
   },
 });

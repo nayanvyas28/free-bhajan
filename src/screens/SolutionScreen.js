@@ -14,7 +14,7 @@ export default function SolutionScreen() {
   const { t } = useLanguage();
   const { playVideo } = usePlayer();
   const [solutions, setSolutions] = useState([]);
-  const [categories, setCategories] = useState(['All']);
+  const [categories, setCategories] = useState([{ name: 'All', name_hi: 'सभी' }]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeType, setActiveType] = useState('video'); // 'video' or 'audio'
@@ -35,11 +35,10 @@ export default function SolutionScreen() {
       const data = await getCategories();
       if (data && data.length > 0) {
         // Only show categories of type 'solution' or 'dosh'
-        const names = data
-          .filter(c => c.type === 'solution' || c.type === 'dosh')
-          .map(c => c.name);
+        const solutionCats = data
+          .filter(c => c.type === 'solution' || c.type === 'dosh');
         
-        setCategories(['All', ...new Set(names)]);
+        setCategories([{ name: 'All', name_hi: t('all') }, ...solutionCats]);
       }
     } catch (e) {}
   };
@@ -204,19 +203,21 @@ export default function SolutionScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catContent}>
           {categories.map(cat => (
             <TouchableOpacity 
-              key={cat} 
-              onPress={() => setActiveCategory(cat)}
+              key={cat.id || cat.name} 
+              onPress={() => setActiveCategory(cat.name)}
               style={[
                 styles.catChip, 
                 { backgroundColor: theme.card, borderColor: theme.border },
-                activeCategory === cat && { backgroundColor: theme.primary, borderColor: theme.primary }
+                activeCategory === cat.name && { backgroundColor: theme.primary, borderColor: theme.primary }
               ]}
             >
               <Text style={[
                 styles.catText, 
                 { color: theme.subtext },
-                activeCategory === cat && { color: '#FFF' }
-              ]}>{t(cat)}</Text>
+                activeCategory === cat.name && { color: '#FFF' }
+              ]}>
+                {language === 'hi' && cat.name_hi ? cat.name_hi : t(cat.name)}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>

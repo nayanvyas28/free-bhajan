@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { Play, Heart, Music, Image as ImageIcon } from 'lucide-react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Share } from 'react-native';
+import { Play, Heart, Music, Image as ImageIcon, Share2 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -16,6 +16,17 @@ const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
   const title = video.title || snippet.title || 'Untitled Divine Content';
   const thumbnailUrl = video.image_url || video.thumbnail || snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url;
   const channelTitle = video.channel_title || snippet.channelTitle || 'Bhajan App';
+  
+  const onShare = async () => {
+    try {
+      const shareUrl = video.type === 'youtube' ? `https://youtube.com/watch?v=${video.id?.videoId || video.id}` : (video.url || video.audioUrl);
+      const result = await Share.share({
+        message: `Listen to "${title}" on Mantra Puja App. 🙏\n\n${shareUrl}\n\nDownload Mantra Puja for more Bhajans & Mantras!`,
+      });
+    } catch (error) {
+      console.log(error.message);
+    }
+  };
 
   return (
     <TouchableOpacity 
@@ -60,13 +71,16 @@ const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
 
         {isAudio && (
           <View style={styles.audioBadge}>
-            <Text style={styles.audioBadgeText}>AUDIO</Text>
+            <Text style={styles.audioBadgeText}>{t('audio').toUpperCase()}</Text>
           </View>
         )}
       </View>
       
       <View style={styles.infoContainer}>
         <View style={styles.textContainer}>
+          <Text style={[styles.subType, { color: theme.primary }]}>
+            {t(video.subType || 'Bhajan')}
+          </Text>
           <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
             {title}
           </Text>
@@ -75,13 +89,18 @@ const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
           </Text>
         </View>
         
-        <TouchableOpacity style={styles.favoriteBtn} onPress={onFavorite}>
-          <Heart 
-            size={24} 
-            color={isFav ? "#FF3B30" : theme.subtext} 
-            fill={isFav ? "#FF3B30" : "transparent"} 
-          />
-        </TouchableOpacity>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.actionBtn} onPress={onShare}>
+            <Share2 size={22} color={theme.subtext} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={onFavorite}>
+            <Heart 
+              size={24} 
+              color={isFav ? "#FF3B30" : theme.subtext} 
+              fill={isFav ? "#FF3B30" : "transparent"} 
+            />
+          </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -160,7 +179,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit-Medium',
     marginTop: 4,
   },
-  favoriteBtn: {
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionBtn: {
     padding: 8,
   },
   audioBadge: {
