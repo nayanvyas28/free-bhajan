@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useCustomAlert } from '../context/AlertContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, LogOut, Save, ChevronLeft, Info, ChevronRight, Palette, Sun, Moon, Monitor } from 'lucide-react-native';
+import { User, LogOut, Save, ChevronLeft, Info, ChevronRight, Palette, Sun, Moon, Monitor, Heart } from 'lucide-react-native';
 
 export default function ProfileScreen({ navigation }) {
   const { theme, themeMode, setThemeMode } = useTheme();
@@ -154,6 +154,20 @@ export default function ProfileScreen({ navigation }) {
             </TouchableOpacity>
           ))}
         </View>
+
+        <TouchableOpacity 
+          style={[styles.menuItem, { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 12 }]}
+          onPress={() => navigation.navigate('Favorites')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.menuItemLeft}>
+            <View style={[styles.menuIconBox, { backgroundColor: 'rgba(255,59,48,0.1)' }]}>
+              <Heart size={20} color="#FF3B30" fill="#FF3B30" />
+            </View>
+            <Text style={[styles.menuItemText, { color: theme.text }]}>{t('favorites')}</Text>
+          </View>
+          <ChevronRight size={20} color={theme.subtext} />
+        </TouchableOpacity>
 
         <TouchableOpacity 
           style={[styles.menuItem, { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' }]}

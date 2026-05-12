@@ -12,7 +12,7 @@ import {
   Alert
 } from 'react-native';
 import { Search, X, RefreshCcw, Mic, Quote, User, Languages } from 'lucide-react-native';
-import { searchBhajans, getCuratedBhajans, getCategories, getDailyQuote } from '../services/youtubeApi';
+import { searchBhajans, getCuratedBhajans, getCategories, getDailyQuote, getKathas } from '../services/youtubeApi';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
 import { useTheme } from '../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +21,7 @@ import Shimmer from '../components/SkeletonLoader';
 import Header from '../components/Header';
 import { usePlayer } from '../context/PlayerContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useSidebar } from '../context/SidebarContext';
 
 const DEFAULT_CATEGORIES = [
   { name: "All", name_hi: "सभी" },
@@ -68,8 +69,9 @@ const DIVINE_QUOTES = [
 export default function HomeScreen({ navigation, route }) {
   const { theme, isDarkMode } = useTheme();
   const { t, language } = useLanguage();
+  const { toggleSidebar } = useSidebar();
   
-  const SUB_TYPES = ["All", "Bhajan", "Mantra"];
+  const SUB_TYPES = ["All", "Bhajan", "Mantra", "Katha"];
   
   const [videos, setVideos] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
@@ -110,11 +112,12 @@ export default function HomeScreen({ navigation, route }) {
       if (searchQuery) {
         data = await searchBhajans(searchQuery);
         data = data.filter(v => v.type === 'youtube' || !v.type);
+      } else if (subType === "Katha") {
+        data = await getKathas();
       } else {
         const categoryParam = category === "All" ? null : category;
         const subTypeParam = subType === "All" ? null : subType;
         data = await getCuratedBhajans(categoryParam, null, subTypeParam);
-        // Fallback search removed - we want to show empty if no database data exists
       }
     } catch (err) {
       console.log("Load error in HomeScreen:", err);
@@ -216,8 +219,12 @@ export default function HomeScreen({ navigation, route }) {
       isFav={favIds.includes(item.id?.videoId || item.id)}
       onFavorite={() => toggleFavorite(item)}
       onPress={() => {
-        console.log("Video clicked:", item.title || item.snippet?.title);
-        playVideo(item, videos);
+        if (item.is_katha) {
+          navigation.navigate('Katha', { kathaId: item.id, title: item.title });
+        } else {
+          console.log("Video clicked:", item.title || item.snippet?.title);
+          playVideo(item, videos);
+        }
       }}
     />
   );
@@ -233,14 +240,14 @@ export default function HomeScreen({ navigation, route }) {
       <View>
         <View style={styles.headerArea}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <View>
+            <TouchableOpacity onPress={toggleSidebar} activeOpacity={0.7}>
               <Text style={[styles.headerTitle, { color: theme.text }]}>
                 {t('namaste')}
               </Text>
               <Text style={[styles.headerSub, { color: theme.subtext }]}>
                 {t('spiritualLibrary')}
               </Text>
-            </View>
+            </TouchableOpacity>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <TouchableOpacity 
                 onPress={toggleLanguage}

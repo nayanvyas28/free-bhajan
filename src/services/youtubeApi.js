@@ -136,6 +136,44 @@ export const getDailyQuote = async () => {
   }
 };
 
+export const getKathas = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('kathas')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(item => ({
+      ...item,
+      is_katha: true,
+      subType: 'Katha',
+      duration: item.duration || 0,
+      snippet: {
+        title: item.title,
+        description: item.content,
+        thumbnails: { high: { url: item.image_url } }
+      }
+    }));
+  } catch (error) {
+    console.error('Kathas Fetch Error:', error);
+    return [];
+  }
+};
+
+export const getCalendarEvents = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('festivals')
+      .select('*, kathas(*)')
+      .order('event_date', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Calendar Fetch Error:', error);
+    return [];
+  }
+};
+
 const SEARCH_MAP = {
   'shiv': ['shiv', 'shiva', 'mahadev', 'bholenath', 'शिव'],
   'shiva': ['shiv', 'shiva', 'mahadev', 'bholenath', 'शिव'],

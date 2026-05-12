@@ -23,7 +23,7 @@ const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
     try {
       const shareUrl = video.type === 'youtube' ? `https://youtube.com/watch?v=${video.id?.videoId || video.id}` : (video.url || video.audioUrl);
       const result = await Share.share({
-        message: `Listen to "${title}" on Mantra Puja App. 🙏\n\n${shareUrl}\n\nDownload Mantra Puja for more Bhajans & Mantras!`,
+        message: `Listen to "${title}" on MantraPuja Bhajan App. 🙏\n\n${shareUrl}\n\nDownload MantraPuja Bhajan for more Bhajans & Mantras!`,
       });
     } catch (error) {
       console.log(error.message);

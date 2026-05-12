@@ -199,23 +199,6 @@ export default function ExploreScreen({ navigation }) {
             <>
               {renderSection('deity', t('deities'), <Flower size={20} color="#FFB300" />)}
               
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <BookOpen size={20} color="#FFB300" />
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('spiritualTools')}</Text>
-                </View>
-                <View style={styles.toolRow}>
-                  <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => Alert.alert(t('comingSoon'), t('festivalCalendar') + " is coming soon! 🙏")}>
-                    <Calendar size={28} color={theme.primary} />
-                    <Text style={[styles.toolText, { color: theme.text }]}>{t('festivalCalendar')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => navigation.navigate('Aarti')}>
-                    <BookOpen size={28} color={theme.primary} />
-                    <Text style={[styles.toolText, { color: theme.text }]}>{t('aartiSangrah')}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
               {renderSection('dosh', t('kundliDosh'), <Stars size={20} color="#FFB300" />)}
             </>
           )}

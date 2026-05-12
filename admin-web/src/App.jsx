@@ -12,7 +12,9 @@ import {
   Tags,
   Loader2,
   Quote,
-  Flame
+  Flame,
+  BookOpen,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 
 import { supabase } from './lib/supabase';
@@ -25,6 +27,8 @@ import ManageSolutions from './components/ManageSolutions';
 import ManageCategories from './components/ManageCategories';
 import ManageQuotes from './components/ManageQuotes';
 import ManageAartis from './components/ManageAartis';
+import ManageKathas from './components/ManageKathas';
+import ManageCalendar from './components/ManageCalendar';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -78,6 +82,8 @@ function App() {
             <SidebarLink to="/add" icon={<PlusCircle size={22} />} label="Add Content" />
             <SidebarLink to="/categories" icon={<Tags size={22} />} label="Manage Categories" />
             <SidebarLink to="/upaye" icon={<Lightbulb size={22} />} label="Manage Upaye" />
+            <SidebarLink to="/kathas" icon={<BookOpen size={22} />} label="Manage Kathas" />
+            <SidebarLink to="/calendar" icon={<CalendarIcon size={22} />} label="Manage Calendar" />
             <SidebarLink to="/aartis" icon={<Flame size={22} />} label="Manage Aarti" />
             <SidebarLink to="/quotes" icon={<Quote size={22} />} label="Daily Quotes" />
             <SidebarLink to="/import" icon={<FileSpreadsheet size={22} />} label="Bulk Import" />
@@ -118,6 +124,8 @@ function App() {
               <Route path="/add" element={<AddBhajan />} />
               <Route path="/categories" element={<ManageCategories />} />
               <Route path="/upaye" element={<ManageSolutions />} />
+              <Route path="/kathas" element={<ManageKathas />} />
+              <Route path="/calendar" element={<ManageCalendar />} />
               <Route path="/aartis" element={<ManageAartis />} />
               <Route path="/quotes" element={<ManageQuotes />} />
               <Route path="/import" element={<ExcelImport />} />

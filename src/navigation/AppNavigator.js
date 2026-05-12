@@ -12,8 +12,10 @@ import AudioScreen from '../screens/AudioScreen';
 import LoginScreen from '../screens/LoginScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import AboutScreen from '../screens/AboutScreen';
+import FavoritesScreen from '../screens/FavoritesScreen';
+import CalendarScreen from '../screens/CalendarScreen';
+import KathaScreen from '../screens/KathaScreen';
 import { AuthProvider } from '../context/AuthContext';
-import { PlayerProvider } from '../context/PlayerContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -22,7 +24,7 @@ const Tab = createBottomTabNavigator();
 
 function TabNavigator() {
   const { theme } = useTheme();
-  const { language, toggleLanguage, t } = useLanguage();
+  const { language, t } = useLanguage();
 
   return (
     <Tab.Navigator
@@ -100,18 +102,21 @@ const styles = StyleSheet.create({
 
 export default function AppNavigator() {
   return (
-    <AuthProvider>
-      <Stack.Navigator 
-        initialRouteName="Main"
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        <Stack.Screen name="Main" component={TabNavigator} />
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Profile" component={ProfileScreen} />
-        <Stack.Screen name="About" component={AboutScreen} />
-      </Stack.Navigator>
-    </AuthProvider>
+    <Stack.Navigator 
+      initialRouteName="MainTabs"
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen name="MainTabs" component={TabNavigator} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="About" component={AboutScreen} />
+      <Stack.Screen name="Favorites" component={FavoritesScreen} />
+      <Stack.Screen name="Calendar" component={CalendarScreen} />
+      <Stack.Screen name="Audio" component={AudioScreen} />
+      <Stack.Screen name="Katha" component={KathaScreen} />
+      <Stack.Screen name="Settings" component={ProfileScreen} />
+    </Stack.Navigator>
   );
 }

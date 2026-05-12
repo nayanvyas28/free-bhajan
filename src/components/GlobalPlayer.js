@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Image,
   Dimensions, Animated, ActivityIndicator, PanResponder
 } from 'react-native';
-import { Play, Pause, X, ChevronDown, SkipBack, SkipForward, List, BookOpen, Music } from 'lucide-react-native';
+import { Play, Pause, X, ChevronDown, SkipBack, SkipForward, List, BookOpen, Music, Plus, Minus, Type, Maximize } from 'lucide-react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import YoutubeIframe from 'react-native-youtube-iframe';
 import { usePlayer } from '../context/PlayerContext';
@@ -20,6 +20,8 @@ export default function GlobalPlayer() {
   const { currentVideo, isPlaying, pauseVideo, resumeVideo, closePlayer, playNext, playPrev, queue, playVideo } = usePlayer();
 
   const [isExpanded, setIsExpanded] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [lyricsFontSize, setLyricsFontSize] = useState(16);
   const [isBuffering, setIsBuffering] = useState(true);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -165,17 +167,23 @@ export default function GlobalPlayer() {
       console.warn("[Player] Subscriptions failed:", e.message);
     }
 
-    // Safe Interval using Ref to avoid "already released" errors
     const interval = setInterval(() => {
       if (!isEffectActive || !playerRef.current) return;
       try {
         if (!isYoutube && !isDraggingRef.current && !isSeekingRef.current) {
+          // 1. Position Sync
           const curTime = playerRef.current.currentTime || 0;
           if (curTime >= 0) setPosition(curTime);
           
-          const totalTime = playerRef.current.duration || (playerRef.current.currentItem && playerRef.current.currentItem.duration) || 0;
+          // 2. Duration Sync (Multi-source fallback)
+          const pDur = playerRef.current.duration;
+          const ciDur = playerRef.current.currentItem?.duration;
+          const dbDur = currentVideo?.duration;
+          
+          const totalTime = (pDur > 0) ? pDur : ((ciDur > 0) ? ciDur : (dbDur > 0 ? dbDur : 0));
+          
           if (totalTime > 0) {
-            setDuration((prev) => (Math.abs(prev - totalTime) > 0.5 ? totalTime : prev));
+            setDuration(totalTime);
           }
         }
       } catch (err) {
@@ -192,7 +200,7 @@ export default function GlobalPlayer() {
       } catch (e) {}
       clearInterval(interval);
     };
-  }, [player, isYoutube, directUrl]);
+  }, [player, isYoutube, directUrl, currentVideo]); // Added currentVideo to dependency to refresh on data changes
 
   // Sync Play/Pause state
   useEffect(() => {
@@ -356,9 +364,6 @@ export default function GlobalPlayer() {
     })
   );
 
-
-
-
   const formatTime = (secs) => {
     if (!secs || isNaN(secs) || secs < 0) return '0:00';
     if (secs > 1000000) return '0:00';
@@ -377,10 +382,18 @@ export default function GlobalPlayer() {
   
   const displayDuration = (liveDuration > 0) ? formatTime(liveDuration) : '...';
 
-
   const thumbnail = currentVideo?.thumbnail || currentVideo?.image_url || currentVideo?.snippet?.thumbnails?.high?.url;
   const title = currentVideo?.title || currentVideo?.snippet?.title || 'Divine Bhajan';
-  const category = currentVideo?.category || currentVideo?.snippet?.channelTitle || 'MantraPuja Bhajan';
+  const category = (
+    currentVideo?.subType === 'Katha' || 
+    currentVideo?.is_katha || 
+    title.toLowerCase().includes('katha') || 
+    title.includes('कथा')
+  ) ? t('katha').toUpperCase() : (
+    (currentVideo?.category && currentVideo?.category !== 'Bhajan') 
+      ? currentVideo?.category.toUpperCase() 
+      : (title.toLowerCase().includes('aarti') || currentVideo?.subType === 'Aarti' ? 'AARTI' : t('bhajan').toUpperCase())
+  );
 
   const upNext = queue.filter(v => (v.id?.videoId || v.id) !== (currentVideo.id?.videoId || currentVideo.id)).slice(0, 10);
 
@@ -405,16 +418,77 @@ export default function GlobalPlayer() {
 
           {isAudioMode ? (
             <View style={styles.audioContainer}>
-              <View style={[styles.artworkContainer, { shadowColor: theme.primary }]}>
-                {thumbnail ? <Image source={{ uri: thumbnail }} style={styles.artwork} /> : 
-                <LinearGradient colors={[theme.primary, '#000']} style={styles.artwork}><Text style={{ fontSize: 80 }}>≡ƒÄ╡</Text></LinearGradient>}
+              <View style={styles.sliderWrapper}>
+                <ScrollView 
+                  horizontal 
+                  pagingEnabled 
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) => {
+                    const slide = Math.round(e.nativeEvent.contentOffset.x / (width - 40));
+                    setActiveSlide(slide);
+                  }}
+                  style={styles.artworkSlider}
+                >
+                  <View style={styles.slideItem}>
+                    <View style={[styles.artworkContainer, { shadowColor: theme.primary }]}>
+                      {thumbnail ? <Image source={{ uri: thumbnail }} style={styles.artwork} /> : 
+                      <LinearGradient colors={[theme.primary, '#000']} style={styles.artwork}><Text style={{ fontSize: 80 }}>🎵</Text></LinearGradient>}
+                    </View>
+                  </View>
+
+                  <View style={styles.slideItem}>
+                    <View style={[styles.lyricsSlideContainer, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: theme.border }]}>
+                      <View style={styles.lyricsSlideHeader}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                          <BookOpen size={20} color={theme.primary} />
+                          <Text style={[styles.lyricsSlideTitle, { color: theme.text }]}>{t('lyrics')}</Text>
+                        </View>
+                        <View style={styles.fontSizeCtrls}>
+                          <TouchableOpacity 
+                            onPress={() => setLyricsFontSize(prev => Math.max(12, prev - 2))} 
+                            style={[styles.fontSizeBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
+                          >
+                            <Minus size={14} color={theme.text} />
+                          </TouchableOpacity>
+                          <Type size={16} color={theme.primary} />
+                          <TouchableOpacity 
+                            onPress={() => setLyricsFontSize(prev => Math.min(32, prev + 2))} 
+                            style={[styles.fontSizeBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
+                          >
+                            <Plus size={14} color={theme.text} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.lyricsSlideContent}>
+                        <Text style={[styles.lyricsSlideText, { color: theme.text, fontSize: lyricsFontSize }]}>
+                          {currentVideo?.description || currentVideo?.snippet?.description || t('lyricsNotAvailable')}
+                        </Text>
+                      </ScrollView>
+                    </View>
+                  </View>
+                </ScrollView>
+
+                <View style={styles.pagination}>
+                  {[0, 1].map((i) => (
+                    <View 
+                      key={i} 
+                      style={[
+                        styles.dot, 
+                        { backgroundColor: activeSlide === i ? theme.primary : 'rgba(255,255,255,0.2)' },
+                        activeSlide === i && { width: 16 }
+                      ]} 
+                    />
+                  ))}
+                </View>
               </View>
+
               <View style={styles.audioInfoArea}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.spotifyTtl, { color: theme.text }]} numberOfLines={1}>{title}</Text>
                   <Text style={[styles.spotifySub, { color: theme.primary }]}>{category}</Text>
                 </View>
               </View>
+
               <View style={styles.spotifyProgArea}>
                 <View 
                   {...panResponder.current.panHandlers}
@@ -431,6 +505,7 @@ export default function GlobalPlayer() {
                   <Text style={styles.timeT}>{displayDuration}</Text>
                 </View>
               </View>
+
               <View style={styles.spotifyCtrlRow}>
                 <TouchableOpacity onPress={playPrev}><SkipBack size={32} color={theme.text} fill={theme.text} /></TouchableOpacity>
                 <TouchableOpacity onPress={isPlaying ? pauseVideo : resumeVideo} style={[styles.spotifyPlayBtn, { backgroundColor: theme.text }]}>
@@ -465,15 +540,26 @@ export default function GlobalPlayer() {
                   style={[styles.videoOverlay, { opacity: showControls ? 1 : 0, zIndex: 2 }]}
                 >
                   <View style={styles.overlayMain}>
-                    <TouchableOpacity onPress={() => seek(-10)}><SkipBack size={32} color="#FFF" /></TouchableOpacity>
+                    <TouchableOpacity onPress={() => seek(-10)}><SkipBack size={24} color="#FFF" /></TouchableOpacity>
                     <TouchableOpacity onPress={isPlaying ? pauseVideo : resumeVideo} style={styles.overlayPlay}>
-                      {isPlaying ? <Pause size={44} color="#FFF" fill="#FFF" /> : <Play size={44} color="#FFF" fill="#FFF" style={{ marginLeft: 5 }} />}
+                      {isPlaying ? <Pause size={32} color="#FFF" fill="#FFF" /> : <Play size={32} color="#FFF" fill="#FFF" style={{ marginLeft: 3 }} />}
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => seek(10)}><SkipForward size={32} color="#FFF" /></TouchableOpacity>
+                    <TouchableOpacity onPress={() => seek(10)}><SkipForward size={24} color="#FFF" /></TouchableOpacity>
                   </View>
                   
                   <View style={styles.overlayBottom}>
-                    <Text style={styles.overlayTime}>{formatTime(position)} {isUnknownDuration ? '' : `/ ${displayDuration}`}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <Text style={[styles.overlayTime, { marginBottom: 0 }]}>{formatTime(position)} {isUnknownDuration ? '' : `/ ${displayDuration}`}</Text>
+                      {!isYoutube && (
+                        <TouchableOpacity 
+                          onPress={() => player?.enterFullscreen()}
+                          style={{ padding: 5 }}
+                        >
+                          <Maximize size={20} color="#FFF" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    
                     <View 
                       {...panResponder.current.panHandlers}
                       onLayout={(e) => updateBarWidth(e.nativeEvent.layout.width)}
@@ -486,8 +572,6 @@ export default function GlobalPlayer() {
                     </View>
                   </View>
                 </Animated.View>
-
-
 
                 {isBuffering && <View style={styles.loaderOverlay}><ActivityIndicator size="large" color={theme.primary} /></View>}
               </View>
@@ -516,11 +600,28 @@ export default function GlobalPlayer() {
               {(currentVideo?.description || currentVideo?.snippet?.description) && (
                 <View style={styles.lyricsSection}>
                   <View style={styles.lyricsHeader}>
-                    <BookOpen size={20} color={theme.primary} />
-                    <Text style={[styles.lyricsTitle, { color: theme.text }]}>{t('lyrics')}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <BookOpen size={20} color={theme.primary} />
+                      <Text style={[styles.lyricsTitle, { color: theme.text }]}>{t('lyrics')}</Text>
+                    </View>
+                    <View style={styles.fontSizeCtrls}>
+                      <TouchableOpacity 
+                        onPress={() => setLyricsFontSize(prev => Math.max(12, prev - 2))} 
+                        style={[styles.fontSizeBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
+                      >
+                        <Minus size={14} color={theme.text} />
+                      </TouchableOpacity>
+                      <Type size={16} color={theme.primary} />
+                      <TouchableOpacity 
+                        onPress={() => setLyricsFontSize(prev => Math.min(32, prev + 2))} 
+                        style={[styles.fontSizeBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
+                      >
+                        <Plus size={14} color={theme.text} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                   <View style={[styles.lyricsContent, { backgroundColor: 'rgba(255,255,255,0.02)', borderColor: theme.border }]}>
-                    <Text style={[styles.lyricsText, { color: theme.text }]}>
+                    <Text style={[styles.lyricsText, { color: theme.text, fontSize: lyricsFontSize }]}>
                       {currentVideo?.description || currentVideo?.snippet?.description}
                     </Text>
                   </View>
@@ -533,7 +634,7 @@ export default function GlobalPlayer() {
         {/* MINI PLAYER */}
         <Animated.View style={[styles.miniBar, { opacity: expandAnim.interpolate({ inputRange: [0, 0.3], outputRange: [1, 0] }) }]} pointerEvents={isExpanded ? 'none' : 'auto'}>
           <TouchableOpacity activeOpacity={1} onPress={toggleExpand} style={styles.miniContent}>
-            {thumbnail ? <Image source={{ uri: thumbnail }} style={styles.miniArt} /> : <View style={[styles.miniArt, { backgroundColor: theme.primary, justifyContent: 'center', alignItems: 'center' }]}><Text>≡ƒÄ╡</Text></View>}
+            {thumbnail ? <Image source={{ uri: thumbnail }} style={styles.miniArt} /> : <View style={[styles.miniArt, { backgroundColor: theme.primary, justifyContent: 'center', alignItems: 'center' }]}><Text>🎵</Text></View>}
             <View style={{ flex: 1, marginLeft: 14 }}><Text style={[styles.miniTtl, { color: theme.text }]} numberOfLines={1}>{title}</Text><Text style={styles.miniSts}>{isBuffering ? t('connecting') : isPlaying ? t('playing') : t('paused')}</Text></View>
             <TouchableOpacity onPress={() => isPlaying ? pauseVideo() : resumeVideo()}>{isPlaying ? <Pause size={26} color={theme.primary} /> : <Play size={26} color={theme.primary} />}</TouchableOpacity>
           </TouchableOpacity>
@@ -544,12 +645,82 @@ export default function GlobalPlayer() {
 }
 
 const styles = StyleSheet.create({
+  sliderWrapper: {
+    width: width,
+    height: width - 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -20,
+  },
+  artworkSlider: {
+    width: width,
+  },
+  slideItem: {
+    width: width,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lyricsSlideContainer: {
+    width: width - 60,
+    height: width - 80,
+    borderRadius: 32,
+    borderWidth: 1,
+    padding: 24,
+    overflow: 'hidden',
+  },
+  lyricsSlideHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  lyricsSlideTitle: {
+    fontSize: 18,
+    fontFamily: 'Outfit-Bold',
+  },
+  lyricsSlideContent: {
+    paddingBottom: 20,
+  },
+  lyricsSlideText: {
+    lineHeight: 28,
+    fontFamily: 'Outfit-Medium',
+    textAlign: 'center',
+    opacity: 0.8,
+  },
+  fontSizeCtrls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    padding: 4,
+    borderRadius: 20,
+  },
+  fontSizeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pagination: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 20,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
   container: { position: 'absolute', left: 0, right: 0, overflow: 'hidden', zIndex: 10000, elevation: 30 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 60, height: 120 },
   headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
   headerTtl: { fontSize: 13, fontFamily: 'Outfit-Black', textTransform: 'uppercase', letterSpacing: 2, opacity: 0.8 },
   
-  audioContainer: { flex: 1, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'center' },
+  audioContainer: { flex: 1, paddingBottom: 40, alignItems: 'center', justifyContent: 'center' },
   artworkContainer: { 
     width: width - 80, 
     aspectRatio: 1, 
@@ -563,16 +734,16 @@ const styles = StyleSheet.create({
     marginTop: -20,
   },
   artwork: { width: '100%', height: '100%' },
-  audioInfoArea: { width: '100%', flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 12 },
+  audioInfoArea: { width: '100%', flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 12, paddingHorizontal: 30 },
   spotifyTtl: { fontSize: 22, fontFamily: 'Outfit-Bold', marginBottom: 2, letterSpacing: -0.5 },
-  spotifySub: { fontSize: 14, fontFamily: 'Outfit-Medium' },
-  spotifyProgArea: { width: '100%', marginBottom: 20 },
+  spotifySub: { fontSize: 14, fontFamily: 'Outfit-Medium', textTransform: 'uppercase', letterSpacing: 1 },
+  spotifyProgArea: { width: '100%', marginBottom: 20, paddingHorizontal: 30 },
   progBg: { height: 3, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1.5, position: 'relative' },
   progFill: { height: '100%', borderRadius: 1.5 },
   progHandle: { width: 10, height: 10, borderRadius: 5, position: 'absolute', top: -3.5 },
   timeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   timeT: { fontSize: 11, fontFamily: 'Outfit-Bold', color: '#B3B3B3', opacity: 0.6 },
-  spotifyCtrlRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingHorizontal: 40 },
+  spotifyCtrlRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingHorizontal: 30 },
   sideBtn: {
     padding: 10,
     opacity: 0.9
@@ -623,11 +794,11 @@ const styles = StyleSheet.create({
   upNextItemSub: { fontSize: 12, fontFamily: 'Outfit-Medium', marginTop: 4, opacity: 0.5 },
 
   videoOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  overlayMain: { flexDirection: 'row', alignItems: 'center', gap: 40 },
+  overlayMain: { flexDirection: 'row', alignItems: 'center', gap: 30 },
   overlayPlay: { 
-    width: 80, 
-    height: 80, 
-    borderRadius: 40, 
+    width: 64, 
+    height: 64, 
+    borderRadius: 32, 
     backgroundColor: 'rgba(255,255,255,0.15)', 
     justifyContent: 'center', 
     alignItems: 'center',
@@ -637,9 +808,9 @@ const styles = StyleSheet.create({
   overlayBottom: { position: 'absolute', bottom: 24, left: 24, right: 24 },
   overlayTime: { color: '#FFF', fontSize: 14, fontFamily: 'Outfit-Black', marginBottom: 14, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 },
   progressBarTouchable: { width: '100%', height: 30, justifyContent: 'center' },
-  overlayProgBg: { height: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 3 },
-  overlayProgFill: { height: '100%', borderRadius: 3 },
-  overlayProgHandle: { width: 16, height: 16, borderRadius: 8, position: 'absolute', top: -5, marginLeft: -8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3 },
+  overlayProgBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2 },
+  overlayProgFill: { height: '100%', borderRadius: 2 },
+  overlayProgHandle: { width: 12, height: 12, borderRadius: 6, position: 'absolute', top: -4, marginLeft: -6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3 },
 
   loaderOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   miniBar: { 
@@ -664,7 +835,6 @@ const styles = StyleSheet.create({
     minHeight: 150 
   },
   lyricsText: { 
-    fontSize: 16, 
     lineHeight: 28, 
     fontFamily: 'Outfit-Medium',
     opacity: 0.9,
