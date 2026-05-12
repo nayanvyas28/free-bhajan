@@ -209,7 +209,7 @@ export default function ExploreScreen({ navigation }) {
                     <Calendar size={28} color={theme.primary} />
                     <Text style={[styles.toolText, { color: theme.text }]}>{t('festivalCalendar')}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => navigation.navigate('HomeTab', { searchQuery: 'Aarti' })}>
+                  <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => navigation.navigate('Aarti')}>
                     <BookOpen size={28} color={theme.primary} />
                     <Text style={[styles.toolText, { color: theme.text }]}>{t('aartiSangrah')}</Text>
                   </TouchableOpacity>

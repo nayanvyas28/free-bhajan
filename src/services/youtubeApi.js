@@ -64,6 +64,7 @@ export const getCuratedBhajans = async (category = null, type = null, subType = 
         type: item.type || (rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be') ? 'youtube' : 'video'),
         thumbnail: displayThumb,
         title: item.title,
+        description: item.description,
         duration: item.duration || 0,
         subType: item.sub_type || 'Bhajan',
         snippet: {
@@ -220,6 +221,7 @@ export const searchBhajans = async (query = 'krishna bhajan', maxResults = 15) =
           type: item.type || (rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be') ? 'youtube' : 'video'),
           image_url: displayThumb,
           title: item.title,
+          description: item.description,
           snippet: {
             title: item.title,
             description: item.description,

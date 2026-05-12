@@ -25,6 +25,7 @@ export default function AartiScreen() {
   const [aartis, setAartis] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedAarti, setSelectedAarti] = useState(null);
+  const [lyricsFontSize, setLyricsFontSize] = useState(18);
 
   useEffect(() => {
     fetchAartis();
@@ -121,14 +122,32 @@ export default function AartiScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>{selectedAarti?.title}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, { color: theme.text }]} numberOfLines={1}>{selectedAarti?.title}</Text>
+              </View>
+              
+              <View style={styles.fontControls}>
+                <TouchableOpacity 
+                  onPress={() => setLyricsFontSize(Math.max(12, lyricsFontSize - 2))} 
+                  style={[styles.fontBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
+                >
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: 'bold' }}>A-</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={() => setLyricsFontSize(Math.min(32, lyricsFontSize + 2))} 
+                  style={[styles.fontBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
+                >
+                  <Text style={{ color: theme.text, fontSize: 18, fontWeight: 'bold' }}>A+</Text>
+                </TouchableOpacity>
+              </View>
+
               <TouchableOpacity onPress={() => setSelectedAarti(null)} style={styles.closeBtn}>
                 <X size={24} color={theme.text} />
               </TouchableOpacity>
             </View>
             
             <ScrollView contentContainerStyle={styles.lyricsScroll}>
-              <Text style={[styles.lyricsText, { color: theme.text }]}>
+              <Text style={[styles.lyricsText, { color: theme.text, fontSize: lyricsFontSize }]}>
                 {selectedAarti?.description || t('lyricsNotAvailable') || 'Lyrics not available for this Aarti.'}
               </Text>
             </ScrollView>
@@ -255,6 +274,8 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 10,
   },
+  fontControls: { flexDirection: 'row', gap: 8, marginRight: 15 },
+  fontBtn: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   closeBtn: {
     width: 40,
     height: 40,
@@ -267,7 +288,6 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   lyricsText: {
-    fontSize: 16,
     lineHeight: 28,
     fontFamily: 'Outfit-Medium',
     textAlign: 'center',

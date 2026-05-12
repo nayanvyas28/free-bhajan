@@ -42,7 +42,7 @@ function Login() {
               <img src="/logo.png" className="w-16 h-16 object-contain" alt="Logo" />
             </div>
             <h1 className="text-3xl font-black text-white tracking-tight mb-2">Welcome Back</h1>
-            <p className="text-slate-400 font-medium">Bhajan Admin Portal</p>
+            <p className="text-slate-400 font-medium">MantraPuja Admin Portal</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">

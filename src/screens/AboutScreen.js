@@ -25,7 +25,7 @@ export default function AboutScreen({ navigation }) {
           style={styles.logo} 
           resizeMode="contain"
         />
-        <Text style={[styles.appName, { color: theme.text }]}>Mantra Puja</Text>
+        <Text style={[styles.appName, { color: theme.text }]}>MantraPuja Bhajan</Text>
         <Text style={[styles.version, { color: theme.subtext }]}>{t('versionLabel')} 1.0.0</Text>
       </View>
 
@@ -68,7 +68,7 @@ export default function AboutScreen({ navigation }) {
       </View>
 
       <Text style={[styles.footer, { color: theme.subtext }]}>
-        © 2026 Mantra Puja. {t('allRightsReserved')}
+        © 2026 MantraPuja Bhajan. {t('allRightsReserved')}
       </Text>
       <View style={{ height: 40 }} />
     </ScrollView>

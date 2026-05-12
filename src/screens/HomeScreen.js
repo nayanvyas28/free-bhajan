@@ -69,7 +69,7 @@ export default function HomeScreen({ navigation, route }) {
   const { theme, isDarkMode } = useTheme();
   const { t, language } = useLanguage();
   
-  const SUB_TYPES = ["All", "Bhajan", "Mantra", "Aarti"];
+  const SUB_TYPES = ["All", "Bhajan", "Mantra"];
   
   const [videos, setVideos] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
@@ -120,8 +120,10 @@ export default function HomeScreen({ navigation, route }) {
       console.log("Load error in HomeScreen:", err);
     }
     
-    // Filter out audio files, show only videos/youtube
-    const videoOnlyData = (data || []).filter(item => item.type !== 'audio');
+    // Filter out audio files and Aarti sub-type
+    const videoOnlyData = (data || []).filter(item => 
+      item.type !== 'audio' && item.subType !== 'Aarti'
+    );
     setVideos(videoOnlyData);
     setLoading(false);
   };

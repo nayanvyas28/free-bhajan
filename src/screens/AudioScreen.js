@@ -26,7 +26,7 @@ export default function AudioScreen({ navigation }) {
   const loadSongs = async () => {
     setLoading(true);
     const data = await getCuratedBhajans();
-    const filtered = data.filter(item => item.type === 'audio');
+    const filtered = data.filter(item => item.type === 'audio' && item.subType !== 'Aarti');
     setSongs(filtered);
     setFilteredSongs(filtered);
     setLoading(false);
