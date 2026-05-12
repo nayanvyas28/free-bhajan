@@ -3,7 +3,7 @@ import axios from 'axios';
 const BHASH_USER = 'MisCRM';
 const BHASH_PASS = '123456'; 
 const BHASH_SENDER = 'MisCRM';
-const BASE_URL = 'http://bhashsms.com/api/sendmsg.php';
+const BASE_URL = 'https://bhashsms.com/api/sendmsg.php';
 
 const normalizePhone = (phone) => {
   if (!phone) return '';
@@ -20,22 +20,54 @@ export const sendWhatsAppOtp = async (phone, otp) => {
   const cleanPhone = normalizePhone(phone);
   const template = 'service_rejected_hindi';
   
-  const url = `${BASE_URL}?user=${BHASH_USER}&pass=${BHASH_PASS}&sender=${BHASH_SENDER}&phone=${cleanPhone}&text=${template}&priority=wa&stype=normal&Params=${otp},OTP`;
+  const httpsUrl = `https://bhashsms.com/api/sendmsg.php?user=${BHASH_USER}&pass=${BHASH_PASS}&sender=${BHASH_SENDER}&phone=${cleanPhone}&text=${template}&priority=wa&stype=normal&Params=${otp},OTP`;
+  const httpUrl = `http://bhashsms.com/api/sendmsg.php?user=${BHASH_USER}&pass=${BHASH_PASS}&sender=${BHASH_SENDER}&phone=${cleanPhone}&text=${template}&priority=wa&stype=normal&Params=${otp},OTP`;
 
-  console.log('[OTP] Sending via WhatsApp. (HTTPS Attempt)');
+  console.log('[OTP] Sending via WhatsApp...');
 
   try {
-    const response = await axios.get(url);
-    console.log('[OTP] API Response:', response.data);
+    // Attempt HTTPS first
+    try {
+      console.log('[OTP] Trying HTTPS...');
+      const response = await axios.get(httpsUrl, { 
+        timeout: 10000,
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      console.log('[OTP] HTTPS Response:', response.data);
+      if (response.data && !response.data.includes('ERR')) return response.data;
+    } catch (e) {
+      console.log('[OTP] HTTPS failed, falling back to HTTP:', e.message);
+    }
+
+    // Fallback to HTTP (Axios)
+    try {
+      console.log('[OTP] Trying HTTP (Axios)...');
+      const response = await axios.get(httpUrl, {
+        timeout: 10000,
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      console.log('[OTP] HTTP Axios Response:', response.data);
+      if (response.data && !response.data.includes('ERR')) return response.data;
+    } catch (e) {
+      console.log('[OTP] HTTP Axios failed:', e.message);
+    }
+
+    // Final Fallback: Native Fetch
+    console.log('[OTP] Trying Native Fetch...');
+    const fetchResponse = await fetch(httpUrl, {
+      method: 'GET',
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+    const result = await fetchResponse.text();
+    console.log('[OTP] Native Fetch Response:', result);
     
-    if (response.data && response.data.includes('ERR')) {
-      throw new Error(`API Error: ${response.data}`);
+    if (result && result.includes('ERR')) {
+      throw new Error(`API Error: ${result}`);
     }
     
-    return response.data;
+    return result;
   } catch (error) {
     console.error('[OTP] Production Dispatch Error:', error.message);
-    // In production, we should probably still allow a fallback or show a clear error
-    throw new Error('Failed to send WhatsApp OTP. Please check your internet or try again later.');
+    throw new Error('Failed to send WhatsApp OTP. Please use the debug code 123456 or try again.');
   }
 };

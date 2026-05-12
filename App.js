@@ -17,6 +17,11 @@ LogBox.ignoreLogs(['Call to function \'ExpoKeepAwake.activate\' has been rejecte
 // SplashScreen.preventAutoHideAsync();
 console.log("App: JS Engine started");
 
+import { SidebarProvider } from './src/context/SidebarContext';
+import { AuthProvider } from './src/context/AuthContext';
+import Sidebar from './src/components/Sidebar';
+import SidebarHandle from './src/components/SidebarHandle';
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     'Outfit-Regular': Outfit_400Regular,
@@ -36,20 +41,26 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider>
-      <LanguageProvider>
-        <AlertProvider>
-          <PlayerProvider>
-            <SafeAreaProvider onLayout={onLayoutRootView}>
-              <NavigationContainer>
-                <StatusBar style="auto" />
-                <AppNavigator />
-                <GlobalPlayer />
-              </NavigationContainer>
-            </SafeAreaProvider>
-          </PlayerProvider>
-        </AlertProvider>
-      </LanguageProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <AlertProvider>
+            <PlayerProvider>
+              <SidebarProvider>
+                <SafeAreaProvider onLayout={onLayoutRootView}>
+                  <NavigationContainer>
+                    <StatusBar style="auto" />
+                    <AppNavigator />
+                    <Sidebar />
+                    <SidebarHandle />
+                    <GlobalPlayer />
+                  </NavigationContainer>
+                </SafeAreaProvider>
+              </SidebarProvider>
+            </PlayerProvider>
+          </AlertProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }

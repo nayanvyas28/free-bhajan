@@ -14,6 +14,7 @@ export default function AddBhajan() {
     sub_type: 'Bhajan',
     thumbnail: '',
     duration: 0,
+    description: '',
     is_visible: true
   });
   const [uploading, setUploading] = useState(false);
@@ -43,7 +44,9 @@ export default function AddBhajan() {
     setUploadProgress(0);
     
     try {
-      const publicUrl = await uploadToR2(selectedFile);
+      const publicUrl = await uploadToR2(selectedFile, (progress) => {
+        setUploadProgress(progress);
+      });
       setUploadProgress(100);
       
       setFormData({ ...formData, url: publicUrl });
@@ -86,6 +89,7 @@ export default function AddBhajan() {
           category: formData.category,
           sub_type: formData.sub_type,
           duration: formData.duration,
+          description: formData.description,
           is_visible: formData.is_visible
         }
       ]);
@@ -93,7 +97,7 @@ export default function AddBhajan() {
       if (error) throw error;
       
       alert('Content added successfully!');
-      setFormData(prev => ({ ...prev, title: '', url: '', thumbnail: '' }));
+      setFormData(prev => ({ ...prev, title: '', url: '', thumbnail: '', description: '' }));
     } catch (error) {
       alert('Error: ' + error.message);
     } finally {
@@ -221,6 +225,17 @@ export default function AddBhajan() {
               onChange={e => setFormData({...formData, title: e.target.value})}
             />
           </div>
+          
+          <div className="space-y-2">
+            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Lyrics / Description (Optional)</label>
+            <textarea 
+              className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-amber-500 outline-none transition-all placeholder:text-slate-600 font-bold min-height-[150px]"
+              rows={5}
+              placeholder="Enter Aarti lyrics or video description here..."
+              value={formData.description}
+              onChange={e => setFormData({...formData, description: e.target.value})}
+            />
+          </div>
 
           <div className="space-y-2">
             <label className="block text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Duration (Seconds)</label>
@@ -261,6 +276,7 @@ export default function AddBhajan() {
                 >
                   <option>Bhajan</option>
                   <option>Mantra</option>
+                  <option>Aarti</option>
                   <option>Song</option>
                 </select>
                 <div className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">

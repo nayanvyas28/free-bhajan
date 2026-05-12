@@ -22,31 +22,36 @@ export const saveFavorite = async (video) => {
     const key = await getFavoritesKey();
     const videoId = video.id?.videoId || video.id;
 
-    if (user) {
-      // Use phone_number for isolation in the DB as well
-      const userId = user.phone_number; 
+    console.log(`[FAV] Saving favorite: ${videoId}, Type: ${video.type}`);
+
+    // 1. Save to AsyncStorage immediately for instant UI feedback
+    const existing = await AsyncStorage.getItem(key);
+    let favs = existing ? JSON.parse(existing) : [];
+    if (!favs.find(f => (f.id?.videoId || f.id) === videoId)) {
+      favs.unshift(video); // Add to top
+      await AsyncStorage.setItem(key, JSON.stringify(favs));
+      console.log(`[FAV] Saved to local storage. Total: ${favs.length}`);
+    }
+
+    // 2. Sync to Supabase if user has a valid UUID
+    if (user && user.id && user.id.length > 20) {
+      console.log(`[FAV] Syncing to Supabase for User: ${user.id}`);
       const { error } = await supabase
         .from('user_favorites')
         .upsert({ 
-          user_id: user.id === '00000000-0000-0000-0000-000000000000' ? null : user.id, // Fallback if UUID is dummy
-          // Note: If DB requires UUID, we might need to rely on AsyncStorage isolation for now
-          // or use a hashed version of phone as UUID.
-          video_id: videoId, 
+          user_id: user.id,
+          video_id: String(videoId), 
           video_data: video 
         }, { onConflict: 'user_id, video_id' });
       
-      // Let's optimize: We'll primarily use AsyncStorage isolation by Phone Number
-      // which I already fixed in the previous step.
-    }
-
-    const existing = await AsyncStorage.getItem(key);
-    const favs = existing ? JSON.parse(existing) : [];
-    if (!favs.find(f => (f.id?.videoId || f.id) === videoId)) {
-      favs.push(video);
-      await AsyncStorage.setItem(key, JSON.stringify(favs));
+      if (error) {
+        console.warn(`[FAV] Supabase sync failed: ${error.message}`);
+      } else {
+        console.log(`[FAV] Supabase sync successful`);
+      }
     }
   } catch (error) {
-    console.error('Error saving favorite:', error);
+    console.error('[FAV] Error saving favorite:', error);
   }
 };
 
@@ -55,22 +60,29 @@ export const removeFavorite = async (videoId) => {
     const user = await getCurrentUser();
     const key = await getFavoritesKey();
 
-    if (user) {
-      await supabase
-        .from('user_favorites')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('video_id', videoId);
-    }
+    console.log(`[FAV] Removing favorite: ${videoId}`);
 
+    // 1. Remove from AsyncStorage
     const existing = await AsyncStorage.getItem(key);
     if (existing) {
       const favs = JSON.parse(existing);
       const updatedFavs = favs.filter(f => (f.id?.videoId || f.id) !== videoId);
       await AsyncStorage.setItem(key, JSON.stringify(updatedFavs));
+      console.log(`[FAV] Removed from local storage. Remaining: ${updatedFavs.length}`);
+    }
+
+    // 2. Remove from Supabase
+    if (user && user.id && user.id.length > 20) {
+      const { error } = await supabase
+        .from('user_favorites')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('video_id', String(videoId));
+      
+      if (error) console.warn(`[FAV] Supabase delete failed: ${error.message}`);
     }
   } catch (error) {
-    console.error('Error removing favorite:', error);
+    console.error('[FAV] Error removing favorite:', error);
   }
 };
 
@@ -78,8 +90,13 @@ export const getFavorites = async () => {
   try {
     const user = await getCurrentUser();
     const key = await getFavoritesKey();
-
-    if (user) {
+    
+    // 1. Get Local Data
+    const localData = await AsyncStorage.getItem(key);
+    let localFavs = localData ? JSON.parse(localData) : [];
+    
+    let remoteFavs = [];
+    if (user && user.id && user.id.length > 20) {
       const { data, error } = await supabase
         .from('user_favorites')
         .select('video_data')
@@ -87,16 +104,67 @@ export const getFavorites = async () => {
         .order('created_at', { ascending: false });
       
       if (!error && data) {
-        const remoteFavs = data.map(item => item.video_data);
-        await AsyncStorage.setItem(key, JSON.stringify(remoteFavs));
-        return remoteFavs;
+        remoteFavs = data.map(item => item.video_data);
       }
     }
 
-    const data = await AsyncStorage.getItem(key);
-    return data ? JSON.parse(data) : [];
+    // 2. Merge Data (Local + Remote) - Local takes precedence for UI speed
+    const mergedMap = new Map();
+    // Add remote items first
+    remoteFavs.forEach(f => {
+      const id = f.id?.videoId || f.id;
+      if (id) mergedMap.set(String(id), f);
+    });
+    // Overlay with local items (more recent)
+    localFavs.forEach(f => {
+      const id = f.id?.videoId || f.id;
+      if (id) mergedMap.set(String(id), f);
+    });
+
+    let favs = Array.from(mergedMap.values());
+
+    // 3. Integrity Check: Verifies curated items still exist in DB
+    const curatedFavs = favs.filter(f => f && (f.type === 'video' || f.type === 'audio'));
+    if (curatedFavs.length > 0) {
+      try {
+        const curatedIds = curatedFavs.map(f => f.id?.videoId || f.id).filter(id => id && id.length > 10);
+        
+        if (curatedIds.length > 0) {
+          const { data: existingSolutions } = await supabase.from('solutions').select('id').in('id', curatedIds);
+          const { data: existingBhajans } = await supabase.from('bhajans').select('id').in('id', curatedIds);
+          
+          const existingIds = new Set([
+            ...(existingSolutions || []).map(s => String(s.id).toLowerCase()),
+            ...(existingBhajans || []).map(b => String(b.id).toLowerCase())
+          ]);
+
+          // Only filter if we actually got results from DB (to avoid purging on network error)
+          if (existingIds.size > 0 || (existingSolutions && existingBhajans)) {
+            const filteredFavs = favs.filter(f => {
+              if (f && (f.type === 'video' || f.type === 'audio')) {
+                const vidId = String(f.id?.videoId || f.id).toLowerCase();
+                const exists = existingIds.has(vidId);
+                if (!exists) console.log(`[FAV] Integrity check: Removing stale ID ${vidId}`);
+                return exists;
+              }
+              return true;
+            });
+
+            if (filteredFavs.length !== favs.length) {
+              favs = filteredFavs;
+              // Update local storage with cleaned list
+              await AsyncStorage.setItem(key, JSON.stringify(favs));
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[FAV] Integrity check error:", e.message);
+      }
+    }
+
+    return favs;
   } catch (error) {
-    console.error('Error getting favorites:', error);
+    console.error('[FAV] Error getting favorites:', error);
     return [];
   }
 };

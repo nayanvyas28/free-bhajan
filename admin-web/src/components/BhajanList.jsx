@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Trash2, Edit, ExternalLink, Music, Video, Search, X, Save, Loader2, Layout, Tags, Eye, EyeOff, Cloud, Lightbulb, Check } from 'lucide-react';
+import { deleteFromR2 } from '../lib/r2';
 
 export default function BhajanList() {
   const [bhajans, setBhajans] = useState([]);
@@ -14,6 +15,7 @@ export default function BhajanList() {
     sub_type: '',
     type: '',
     thumbnail: '',
+    duration: 0,
     is_visible: true
   });
   const [activeTab, setActiveTab] = useState('all'); // all, youtube, r2
@@ -43,8 +45,14 @@ export default function BhajanList() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this content?')) return;
+    const bhajan = bhajans.find(b => b.id === id);
+    if (!window.confirm(`Are you sure you want to delete "${bhajan?.title}"?`)) return;
     
+    // Delete from Cloudflare if it's an R2 URL
+    if (bhajan?.url) {
+      await deleteFromR2(bhajan.url);
+    }
+
     const { error } = await supabase.from('bhajans').delete().eq('id', id);
     if (!error) {
       setBhajans(bhajans.filter(b => b.id !== id));
@@ -59,6 +67,7 @@ export default function BhajanList() {
       sub_type: bhajan.sub_type || 'Bhajan',
       type: bhajan.type,
       thumbnail: bhajan.thumbnail,
+      duration: bhajan.duration || 0,
       is_visible: bhajan.is_visible !== false
     });
   };
@@ -204,11 +213,21 @@ export default function BhajanList() {
                         placeholder="Thumbnail URL"
                         onChange={e => setEditFormData({...editFormData, thumbnail: e.target.value})}
                       />
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="number"
+                          className="w-24 bg-[#0F172A] border border-amber-500/50 rounded-xl px-4 py-2 text-white font-bold outline-none text-[10px]"
+                          value={editFormData.duration}
+                          placeholder="Secs"
+                          onChange={e => setEditFormData({...editFormData, duration: parseInt(e.target.value) || 0})}
+                        />
+                        <span className="text-[10px] text-slate-500 uppercase font-black">Seconds</span>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex items-center gap-5">
                       <div className="relative">
-                        <img src={bhajan.thumbnail} className="w-16 h-16 rounded-2xl object-cover bg-slate-900 shadow-xl group-hover:scale-105 transition-transform" />
+                        <img src={bhajan.thumbnail} className="w-16 h-16 rounded-2xl object-cover object-top bg-slate-900 shadow-xl group-hover:scale-105 transition-transform" />
                         <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10" />
                         <div className="absolute -top-2 -right-2 p-1.5 bg-[#0F172A] rounded-lg border border-slate-800">
                           {bhajan.type === 'youtube' ? (
@@ -224,7 +243,12 @@ export default function BhajanList() {
                       </div>
                       <div>
                         <p className="font-black text-white text-lg leading-tight">{bhajan.title}</p>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">ID: {bhajan.url.slice(0, 15)}...</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">ID: {bhajan.url.slice(0, 15)}...</p>
+                          {bhajan.duration > 0 && (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 text-[10px] font-black">{Math.floor(bhajan.duration / 60)}:{(bhajan.duration % 60).toString().padStart(2, '0')}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -238,6 +262,7 @@ export default function BhajanList() {
                     >
                       <option>Bhajan</option>
                       <option>Mantra</option>
+                      <option>Aarti</option>
                       <option>Song</option>
                     </select>
                   ) : (

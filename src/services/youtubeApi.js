@@ -64,6 +64,7 @@ export const getCuratedBhajans = async (category = null, type = null, subType = 
         type: item.type || (rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be') ? 'youtube' : 'video'),
         thumbnail: displayThumb,
         title: item.title,
+        description: item.description,
         duration: item.duration || 0,
         subType: item.sub_type || 'Bhajan',
         snippet: {
@@ -104,9 +105,71 @@ export const getSolutions = async (category = null, type = null) => {
     if (type) query = query.eq('type', type);
     const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+    
+    // Add solution flag for easier filtering in favorites
+    const processedData = (data || []).map(item => ({
+      ...item,
+      is_solution: true
+    }));
+    
+    return processedData;
   } catch (error) {
     console.error('Solutions Error:', error);
+    return [];
+  }
+};
+
+export const getDailyQuote = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('quotes')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    if (error) throw error;
+    return data && data.length > 0 ? data[0] : null;
+  } catch (error) {
+    console.error('Daily Quote Error:', error);
+    return null;
+  }
+};
+
+export const getKathas = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('kathas')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(item => ({
+      ...item,
+      is_katha: true,
+      subType: 'Katha',
+      duration: item.duration || 0,
+      snippet: {
+        title: item.title,
+        description: item.content,
+        thumbnails: { high: { url: item.image_url } }
+      }
+    }));
+  } catch (error) {
+    console.error('Kathas Fetch Error:', error);
+    return [];
+  }
+};
+
+export const getCalendarEvents = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('festivals')
+      .select('*, kathas(*)')
+      .order('event_date', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Calendar Fetch Error:', error);
     return [];
   }
 };
@@ -196,6 +259,7 @@ export const searchBhajans = async (query = 'krishna bhajan', maxResults = 15) =
           type: item.type || (rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be') ? 'youtube' : 'video'),
           image_url: displayThumb,
           title: item.title,
+          description: item.description,
           snippet: {
             title: item.title,
             description: item.description,

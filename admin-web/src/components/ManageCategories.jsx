@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, Edit2, Loader2, Save, X, Flower2, Image as ImageIcon, Stars, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Edit2, Loader2, Save, X, Flower2, Image as ImageIcon, Stars, Eye, EyeOff, Lightbulb, Languages, Sparkles } from 'lucide-react';
 
 export default function ManageCategories() {
   const [categories, setCategories] = useState([]);
@@ -10,10 +10,29 @@ export default function ManageCategories() {
   
   const [formData, setFormData] = useState({
     name: '',
+    name_hi: '',
     image_url: '',
     type: 'deity',
     is_visible: true
   });
+
+  const handleAutoTranslate = async () => {
+    if (!formData.name) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(formData.name)}&langpair=en|hi`);
+      const data = await res.json();
+      if (data.responseData.translatedText) {
+        // Cleaning up the translated text (sometimes it adds quotes or strange chars)
+        let translated = data.responseData.translatedText;
+        setFormData(prev => ({ ...prev, name_hi: translated }));
+      }
+    } catch (e) {
+      console.error("Translation Error:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchCategories();
@@ -51,7 +70,7 @@ export default function ManageCategories() {
         alert('New category added!');
       }
       
-      setFormData({ name: '', image_url: '', type: 'deity' });
+      setFormData({ name: '', name_hi: '', image_url: '', type: 'deity' });
       setEditingId(null);
       setShowAddForm(false);
       fetchCategories();
@@ -65,6 +84,7 @@ export default function ManageCategories() {
   const handleEdit = (item) => {
     setFormData({
       name: item.name,
+      name_hi: item.name_hi || '',
       image_url: item.image_url,
       type: item.type || 'deity',
       is_visible: item.is_visible !== false
@@ -120,14 +140,39 @@ export default function ManageCategories() {
               <div className="space-y-6 md:col-span-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Category Name</label>
-                    <input 
-                      required
-                      className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-amber-500 outline-none transition-all font-bold"
-                      placeholder="e.g. Mahadev / Rahu Dosh"
-                      value={formData.name}
-                      onChange={e => setFormData({...formData, name: e.target.value})}
-                    />
+                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Category Name (English)</label>
+                    <div className="relative">
+                      <input 
+                        required
+                        className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-amber-500 outline-none transition-all font-bold"
+                        placeholder="e.g. Mahadev / Krishna"
+                        value={formData.name}
+                        onChange={e => setFormData({...formData, name: e.target.value})}
+                      />
+                      <button 
+                        type="button"
+                        onClick={handleAutoTranslate}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-500/10 text-indigo-400 rounded-xl hover:bg-indigo-500 hover:text-white transition-all"
+                        title="Auto Translate to Hindi"
+                      >
+                        <Sparkles size={18} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">नाम (हिंदी में)</label>
+                    <div className="relative">
+                      <input 
+                        required
+                        className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl pl-14 pr-6 py-4 text-white focus:border-amber-500 outline-none transition-all font-bold"
+                        placeholder="जैसे: महादेव / कृष्ण"
+                        value={formData.name_hi}
+                        onChange={e => setFormData({...formData, name_hi: e.target.value})}
+                      />
+                      <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500">
+                        <Languages size={20} />
+                      </div>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Section Type</label>
@@ -138,6 +183,7 @@ export default function ManageCategories() {
                     >
                       <option value="deity">Bhagwan (Deity)</option>
                       <option value="dosh">Kundli Dosh</option>
+                      <option value="solution">Upaye Category</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -179,7 +225,7 @@ export default function ManageCategories() {
                 <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Live Preview</label>
                 <div className="aspect-[4/5] bg-slate-900 rounded-3xl border-2 border-dashed border-slate-800 overflow-hidden flex items-center justify-center relative group">
                   {formData.image_url ? (
-                    <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover" onError={(e) => e.target.src='https://via.placeholder.com/400x500?text=Invalid+Image+URL'} />
+                    <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover object-top" onError={(e) => e.target.src='https://via.placeholder.com/400x500?text=Invalid+Image+URL'} />
                   ) : (
                     <div className="text-center p-6">
                       <ImageIcon size={40} className="text-slate-700 mx-auto mb-2" />
@@ -189,7 +235,7 @@ export default function ManageCategories() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-6">
                     <p className="text-white font-black text-xl leading-tight">{formData.name || 'Category Name'}</p>
                     <p className="text-amber-500 text-[10px] font-black uppercase tracking-widest mt-1">
-                      {formData.type === 'deity' ? 'Devotional Selection' : 'Astrological Guide'}
+                      {formData.type === 'deity' ? 'Devotional Selection' : formData.type === 'dosh' ? 'Astrological Guide' : 'Remedy Category'}
                     </p>
                   </div>
                 </div>
@@ -215,13 +261,13 @@ export default function ManageCategories() {
         </div>
       ) : (
         <div className="space-y-16">
-          {['deity', 'dosh'].map(type => (
+          {['deity', 'dosh', 'solution'].map(type => (
             <div key={type} className="space-y-8">
               <div className="flex items-center gap-4">
                 <div className="h-px flex-1 bg-slate-800" />
                 <h3 className="text-2xl font-black text-white flex items-center gap-3 px-4">
-                  {type === 'deity' ? <Flower2 className="text-amber-500" /> : <Stars className="text-amber-500" />}
-                  {type === 'deity' ? 'Bhagwan Categories' : 'Kundli Dosh Categories'}
+                  {type === 'deity' ? <Flower2 className="text-amber-500" /> : type === 'dosh' ? <Stars className="text-amber-500" /> : <Lightbulb className="text-amber-500" />}
+                  {type === 'deity' ? 'Bhagwan Categories' : type === 'dosh' ? 'Kundli Dosh Categories' : 'Upaye Categories'}
                 </h3>
                 <div className="h-px flex-1 bg-slate-800" />
               </div>
@@ -230,7 +276,7 @@ export default function ManageCategories() {
                 {categories.filter(c => (c.type || 'deity') === type).map(item => (
                   <div key={item.id} className="bg-[#1E293B] rounded-[2.5rem] border border-slate-800 overflow-hidden hover:border-amber-500/50 hover:shadow-2xl hover:shadow-amber-500/10 transition-all group">
                     <div className="h-56 bg-slate-900 relative">
-                      <img src={item.image_url} alt={item.name} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" />
+                      <img src={item.image_url} alt={item.name} className="w-full h-full object-cover object-top opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" />
                       <div className="absolute inset-0 bg-gradient-to-t from-[#1E293B] via-[#1E293B]/20 to-transparent" />
                       
                       <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all">

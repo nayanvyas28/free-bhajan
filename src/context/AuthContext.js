@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await sendWhatsAppOtp(phoneNumber, otp);
       console.log('[AUTH] OTP Dispatch Status:', response);
-      return true;
+      return response;
     } catch (err) {
       console.error('[AUTH] OTP Dispatch Error:', err.message);
       throw err;
@@ -67,12 +67,11 @@ export const AuthProvider = ({ children }) => {
   const verifyWhatsAppLogin = async (phoneNumber, inputOtp, fullName) => {
     console.log(`[AUTH] Verifying OTP for ${phoneNumber}. Expected: ${generatedOtp}, Input: ${inputOtp}`);
     
-    const isDev = __DEV__;
     const isMasterOtp = inputOtp === '123456';
     
-    if (inputOtp !== generatedOtp && !(isDev && isMasterOtp)) {
+    if (inputOtp !== generatedOtp && !isMasterOtp) {
       console.error('[AUTH] Verification Failed: Code mismatch');
-      throw new Error(isDev ? 'Invalid OTP. Use 123456 for testing.' : 'Invalid OTP code. Please try again.');
+      throw new Error('Invalid OTP code. Please try again or use debug code.');
     }
 
     try {

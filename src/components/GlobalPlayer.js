@@ -3,10 +3,11 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Image,
   Dimensions, Animated, ActivityIndicator, PanResponder
 } from 'react-native';
-import { Play, Pause, X, ChevronDown, SkipBack, SkipForward, List } from 'lucide-react-native';
+import { Play, Pause, X, ChevronDown, SkipBack, SkipForward, List, BookOpen, Music, Plus, Minus, Type, Maximize } from 'lucide-react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import YoutubeIframe from 'react-native-youtube-iframe';
 import { usePlayer } from '../context/PlayerContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScrollView } from 'react-native';
@@ -15,9 +16,12 @@ const { height, width } = Dimensions.get('window');
 
 export default function GlobalPlayer() {
   const { theme, isDarkMode } = useTheme();
+  const { t } = useLanguage();
   const { currentVideo, isPlaying, pauseVideo, resumeVideo, closePlayer, playNext, playPrev, queue, playVideo } = usePlayer();
 
   const [isExpanded, setIsExpanded] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [lyricsFontSize, setLyricsFontSize] = useState(16);
   const [isBuffering, setIsBuffering] = useState(true);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -72,12 +76,12 @@ export default function GlobalPlayer() {
     setPosition(0);
     setShowControls(true);
 
-    const urlWithBust = isCloudflare ? `${directUrl}${directUrl.includes('?') ? '&' : '?'}t=${Date.now()}` : directUrl;
+    const urlWithBust = directUrl; // Removed cache buster to fix Range/Seeking issues
     player.replace({
       uri: urlWithBust,
       metadata: {
         title: currentVideo?.title || 'Divine Bhajan',
-        artist: currentVideo?.category || 'Mantra Puja',
+        artist: currentVideo?.category || 'MantraPuja Bhajan',
         duration: currentVideo?.duration || 0
       }
     });
@@ -89,22 +93,29 @@ export default function GlobalPlayer() {
   const probeDuration = async (url) => {
     if (!url || isYoutube) return;
     try {
-      const response = await fetch(url, { headers: { Range: 'bytes=0-65536' } });
+      // Try to get headers first
+      const headResponse = await fetch(url, { method: 'HEAD' });
+      const contentLength = headResponse.headers.get('content-length');
+      
+      // Probe the first 128KB for metadata
+      const response = await fetch(url, { headers: { Range: 'bytes=0-131072' } });
       const buffer = await response.arrayBuffer();
       const view = new DataView(buffer);
+      
       for (let i = 0; i < view.byteLength - 20; i++) {
-        if (view.getUint32(i) === 0x6D766864) { // 'mvhd'
+        // Look for 'mvhd' box in MP4
+        if (view.getUint32(i) === 0x6D766864) { 
           const version = view.getUint8(i + 4);
-          let timescale, duration;
+          let timescale, durationVal;
           if (version === 0) {
             timescale = view.getUint32(i + 12);
-            duration = view.getUint32(i + 16);
+            durationVal = view.getUint32(i + 16);
           } else {
             timescale = view.getUint32(i + 20);
-            duration = view.getUint32(i + 24);
+            durationVal = view.getUint32(i + 24);
           }
-          if (timescale > 0 && duration > 0) {
-            const realDur = duration / timescale;
+          if (timescale > 0 && durationVal > 0) {
+            const realDur = durationVal / timescale;
             if (realDur > 1) {
               setDuration(realDur);
               return;
@@ -117,40 +128,79 @@ export default function GlobalPlayer() {
     }
   };
 
+  const playerRef = useRef(player);
+  useEffect(() => {
+    playerRef.current = player;
+  }, [player]);
+
   // 6. STATUS LISTENERS & TIME SYNC (EXPO-VIDEO)
   useEffect(() => {
     if (!player || isYoutube) return;
-    if (isCloudflare) probeDuration(directUrl);
+    if (isCloudflare || isSupabase) probeDuration(directUrl);
     
-    const statusSub = player.addListener('statusChange', (status) => {
-      setIsBuffering(status === 'loading' || status === 'buffering');
-      const d = player.duration || (player.currentItem && player.currentItem.duration) || 0;
-      if (d > 0) setDuration(d);
-    });
+    let isEffectActive = true;
+    let statusSub, durSub, timeSub;
 
-    const durSub = player.addListener('durationChange', (newDur) => {
-      if (newDur > 0) setDuration(newDur);
-    });
+    try {
+      statusSub = player.addListener('statusChange', (status) => {
+        if (!isEffectActive) return;
+        setIsBuffering(status === 'loading' || status === 'buffering');
+        try {
+          const d = player.duration || (player.currentItem && player.currentItem.duration) || 0;
+          if (d > 0) setDuration(d);
+        } catch (e) {}
+      });
+
+      durSub = player.addListener('durationChange', (newDur) => {
+        if (!isEffectActive) return;
+        if (newDur > 0) setDuration(newDur);
+      });
+
+      timeSub = player.addListener('timeUpdate', (event) => {
+        if (!isEffectActive) return;
+        if (!isDraggingRef.current && !isSeekingRef.current) {
+          const curTime = event.currentTime || 0;
+          if (curTime >= 0) setPosition(curTime);
+        }
+      });
+    } catch (e) {
+      console.warn("[Player] Subscriptions failed:", e.message);
+    }
 
     const interval = setInterval(() => {
-      if (player && !isYoutube && !isDraggingRef.current && !isSeekingRef.current) {
-        const curTime = player.currentTime || 0;
-        const totalTime = player.duration || (player.currentItem && player.currentItem.duration) || 0;
-        
-        if (curTime >= 0) setPosition(curTime);
-        
-        if (totalTime > 0) {
-          setDuration((prev) => (Math.abs(prev - totalTime) > 0.5 ? totalTime : prev));
+      if (!isEffectActive || !playerRef.current) return;
+      try {
+        if (!isYoutube && !isDraggingRef.current && !isSeekingRef.current) {
+          // 1. Position Sync
+          const curTime = playerRef.current.currentTime || 0;
+          if (curTime >= 0) setPosition(curTime);
+          
+          // 2. Duration Sync (Multi-source fallback)
+          const pDur = playerRef.current.duration;
+          const ciDur = playerRef.current.currentItem?.duration;
+          const dbDur = currentVideo?.duration;
+          
+          const totalTime = (pDur > 0) ? pDur : ((ciDur > 0) ? ciDur : (dbDur > 0 ? dbDur : 0));
+          
+          if (totalTime > 0) {
+            setDuration(totalTime);
+          }
         }
+      } catch (err) {
+        // Silent fail for released objects
       }
-    }, 500);
+    }, 500); 
 
     return () => {
-      statusSub?.remove();
-      durSub?.remove();
+      isEffectActive = false;
+      try {
+        statusSub?.remove();
+        durSub?.remove();
+        timeSub?.remove();
+      } catch (e) {}
       clearInterval(interval);
     };
-  }, [player, isYoutube]);
+  }, [player, isYoutube, directUrl, currentVideo]); // Added currentVideo to dependency to refresh on data changes
 
   // Sync Play/Pause state
   useEffect(() => {
@@ -166,7 +216,7 @@ export default function GlobalPlayer() {
   useEffect(() => {
     if (!isYoutube) return;
     const interval = setInterval(async () => {
-      if (ytPlayerRef.current) {
+      if (ytPlayerRef.current && !isDraggingRef.current && !isSeekingRef.current) {
         try {
           const t = await ytPlayerRef.current.getCurrentTime();
           const d = await ytPlayerRef.current.getDuration();
@@ -218,83 +268,101 @@ export default function GlobalPlayer() {
 
   const controlsTimeout = useRef(null);
   const [barWidth, setBarWidth] = useState(Dimensions.get('window').width - 40);
+  const [barX, setBarX] = useState(20);
   const [isDragging, setIsDragging] = useState(false);
   const [dragProgress, setDragProgress] = useState(0);
 
   const isYoutubeRef = useRef(isYoutube);
   const durationRef = useRef(duration);
   const barWidthRef = useRef(barWidth);
+  const barXRef = useRef(barX);
   const isDraggingRef = useRef(false);
   const isSeekingRef = useRef(false);
 
   useEffect(() => { isYoutubeRef.current = isYoutube; }, [isYoutube]);
   useEffect(() => { durationRef.current = duration; }, [duration]);
-  useEffect(() => { barWidthRef.current = barWidth; }, [barWidth]);
-  useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
+  
+  const updateBarWidth = (w) => {
+    setBarWidth(w);
+    barWidthRef.current = w;
+  };
+
+  const updateBarX = (x) => {
+    setBarX(x);
+    barXRef.current = x;
+  };
+
+  // Unified Duration Logic - Move above PanResponder
+  const getEffectiveDuration = () => {
+    const pDur = (player && player.duration > 0) ? player.duration : 
+                ((player && player.currentItem && player.currentItem.duration > 0) ? player.currentItem.duration : 0);
+    const dbDur = currentVideo?.duration || 0;
+    return pDur > 0 ? pDur : (dbDur > 0 ? dbDur : duration);
+  };
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
-        if (durationRef.current <= 0 && !isYoutubeRef.current) return;
+        const dur = getEffectiveDuration();
+        if (dur <= 0 && !isYoutubeRef.current) return;
+        
+        isDraggingRef.current = true;
         setIsDragging(true);
+        
+        const bX = evt.nativeEvent.pageX - evt.nativeEvent.locationX;
+        updateBarX(bX);
         if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
       },
       onPanResponderMove: (evt, gestureState) => {
-        if (durationRef.current <= 0 && !isYoutubeRef.current) return;
-        // Approximation of drag position
-        let newPct = (gestureState.moveX - 20) / barWidthRef.current; // 20 is left padding
+        const dur = getEffectiveDuration();
+        if (dur <= 0 && !isYoutubeRef.current) return;
+        
+        const touchX = gestureState.moveX || evt.nativeEvent.pageX;
+        const bWidth = barWidthRef.current || 1;
+        
+        let newPct = (touchX - barXRef.current) / bWidth;
         newPct = Math.min(Math.max(newPct, 0), 1);
         setDragProgress(newPct * 100);
       },
       onPanResponderRelease: (evt, gestureState) => {
-        const dur = durationRef.current;
+        const dur = getEffectiveDuration();
         if (dur <= 0 && !isYoutubeRef.current) return;
+        
+        isDraggingRef.current = false;
         setIsDragging(false);
         
-        // Calculate relative position based on screen width and padding
-        const screenWidth = Dimensions.get('window').width;
-        const barPadding = 20; 
-        const relativeX = gestureState.moveX - barPadding;
-        let newPct = relativeX / (screenWidth - barPadding * 2);
+        const touchX = gestureState.moveX || evt.nativeEvent.pageX;
+        const bWidth = barWidthRef.current || 1;
         
+        let newPct = (touchX - barXRef.current) / bWidth;
         newPct = Math.min(Math.max(newPct, 0), 1);
         const newPosition = Math.floor(newPct * dur);
         
         isSeekingRef.current = true;
+        setPosition(newPosition);
+        
         if (isYoutubeRef.current) {
           ytPlayerRef.current?.seekTo(newPosition, true);
         } else if (player) {
-          player.currentTime = newPosition;
-          player.play();
+          try {
+            player.currentTime = newPosition;
+            player.play();
+          } catch (e) {
+            console.log("Seek error:", e);
+          }
         }
-        setPosition(newPosition);
-        setTimeout(() => { isSeekingRef.current = false; }, 1000);
+        
+        resumeVideo();
+        
+        setTimeout(() => { 
+          isSeekingRef.current = false; 
+        }, 1000); 
         setShowControls(true);
       }
     })
   );
-
-
-  const handleSeekClick = (event) => {
-    const dur = durationRef.current;
-    if (dur <= 0 && !isYoutubeRef.current) return;
-    
-    const { locationX } = event.nativeEvent;
-    const percentage = locationX / barWidthRef.current;
-    const newPosition = Math.floor(percentage * dur);
-    
-    isSeekingRef.current = true;
-    if (isYoutubeRef.current) {
-      ytPlayerRef.current?.seekTo(newPosition, true);
-    } else if (player) {
-      player.currentTime = newPosition;
-      player.play();
-    }
-    setPosition(newPosition);
-    setTimeout(() => { isSeekingRef.current = false; }, 1000);
-  };
 
   const formatTime = (secs) => {
     if (!secs || isNaN(secs) || secs < 0) return '0:00';
@@ -306,12 +374,7 @@ export default function GlobalPlayer() {
 
   if (!currentVideo) return null;
 
-  // Try to get a live reading of duration directly from the player object as a final fallback
-  const dbDuration = currentVideo?.duration || 0;
-  const liveDuration = (player && player.duration > 0) ? player.duration : 
-                     ((player && player.currentItem && player.currentItem.duration > 0) ? player.currentItem.duration : 
-                     (dbDuration > 0 ? dbDuration : duration));
-  
+  const liveDuration = getEffectiveDuration();
   const isUnknownDuration = liveDuration <= 0;
   const rawProgressPct = (liveDuration > 0) ? (position / liveDuration) * 100 : 0;
   const currentPct = Math.min(Math.max(rawProgressPct, 0), 100);
@@ -319,10 +382,18 @@ export default function GlobalPlayer() {
   
   const displayDuration = (liveDuration > 0) ? formatTime(liveDuration) : '...';
 
-
   const thumbnail = currentVideo?.thumbnail || currentVideo?.image_url || currentVideo?.snippet?.thumbnails?.high?.url;
   const title = currentVideo?.title || currentVideo?.snippet?.title || 'Divine Bhajan';
-  const category = currentVideo?.category || currentVideo?.snippet?.channelTitle || 'Mantra Puja';
+  const category = (
+    currentVideo?.subType === 'Katha' || 
+    currentVideo?.is_katha || 
+    title.toLowerCase().includes('katha') || 
+    title.includes('कथा')
+  ) ? t('katha').toUpperCase() : (
+    (currentVideo?.category && currentVideo?.category !== 'Bhajan') 
+      ? currentVideo?.category.toUpperCase() 
+      : (title.toLowerCase().includes('aarti') || currentVideo?.subType === 'Aarti' ? 'AARTI' : t('bhajan').toUpperCase())
+  );
 
   const upNext = queue.filter(v => (v.id?.videoId || v.id) !== (currentVideo.id?.videoId || currentVideo.id)).slice(0, 10);
 
@@ -339,7 +410,7 @@ export default function GlobalPlayer() {
             <TouchableOpacity onPress={toggleExpand} style={styles.headerBtn}>
               <ChevronDown color={theme.text} size={30} />
             </TouchableOpacity>
-            <Text style={[styles.headerTtl, { color: theme.text }]}>{isAudioMode ? 'Now Playing' : 'Watching'}</Text>
+            <Text style={[styles.headerTtl, { color: theme.text }]}>{isAudioMode ? t('nowPlaying') : t('watching')}</Text>
             <TouchableOpacity onPress={handleClose} style={styles.headerBtn}>
               <X color={theme.text} size={26} />
             </TouchableOpacity>
@@ -347,20 +418,81 @@ export default function GlobalPlayer() {
 
           {isAudioMode ? (
             <View style={styles.audioContainer}>
-              <View style={[styles.artworkContainer, { shadowColor: theme.primary }]}>
-                {thumbnail ? <Image source={{ uri: thumbnail }} style={styles.artwork} /> : 
-                <LinearGradient colors={[theme.primary, '#000']} style={styles.artwork}><Text style={{ fontSize: 80 }}>🎵</Text></LinearGradient>}
+              <View style={styles.sliderWrapper}>
+                <ScrollView 
+                  horizontal 
+                  pagingEnabled 
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) => {
+                    const slide = Math.round(e.nativeEvent.contentOffset.x / (width - 40));
+                    setActiveSlide(slide);
+                  }}
+                  style={styles.artworkSlider}
+                >
+                  <View style={styles.slideItem}>
+                    <View style={[styles.artworkContainer, { shadowColor: theme.primary }]}>
+                      {thumbnail ? <Image source={{ uri: thumbnail }} style={styles.artwork} /> : 
+                      <LinearGradient colors={[theme.primary, '#000']} style={styles.artwork}><Text style={{ fontSize: 80 }}>🎵</Text></LinearGradient>}
+                    </View>
+                  </View>
+
+                  <View style={styles.slideItem}>
+                    <View style={[styles.lyricsSlideContainer, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: theme.border }]}>
+                      <View style={styles.lyricsSlideHeader}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                          <BookOpen size={20} color={theme.primary} />
+                          <Text style={[styles.lyricsSlideTitle, { color: theme.text }]}>{t('lyrics')}</Text>
+                        </View>
+                        <View style={styles.fontSizeCtrls}>
+                          <TouchableOpacity 
+                            onPress={() => setLyricsFontSize(prev => Math.max(12, prev - 2))} 
+                            style={[styles.fontSizeBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
+                          >
+                            <Minus size={14} color={theme.text} />
+                          </TouchableOpacity>
+                          <Type size={16} color={theme.primary} />
+                          <TouchableOpacity 
+                            onPress={() => setLyricsFontSize(prev => Math.min(32, prev + 2))} 
+                            style={[styles.fontSizeBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
+                          >
+                            <Plus size={14} color={theme.text} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.lyricsSlideContent}>
+                        <Text style={[styles.lyricsSlideText, { color: theme.text, fontSize: lyricsFontSize }]}>
+                          {currentVideo?.description || currentVideo?.snippet?.description || t('lyricsNotAvailable')}
+                        </Text>
+                      </ScrollView>
+                    </View>
+                  </View>
+                </ScrollView>
+
+                <View style={styles.pagination}>
+                  {[0, 1].map((i) => (
+                    <View 
+                      key={i} 
+                      style={[
+                        styles.dot, 
+                        { backgroundColor: activeSlide === i ? theme.primary : 'rgba(255,255,255,0.2)' },
+                        activeSlide === i && { width: 16 }
+                      ]} 
+                    />
+                  ))}
+                </View>
               </View>
+
               <View style={styles.audioInfoArea}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.spotifyTtl, { color: theme.text }]} numberOfLines={1}>{title}</Text>
                   <Text style={[styles.spotifySub, { color: theme.primary }]}>{category}</Text>
                 </View>
               </View>
+
               <View style={styles.spotifyProgArea}>
                 <View 
                   {...panResponder.current.panHandlers}
-                  onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+                  onLayout={(e) => updateBarWidth(e.nativeEvent.layout.width)}
                   style={styles.progressBarTouchable}
                 >
                   <View style={styles.progBg}>
@@ -373,6 +505,7 @@ export default function GlobalPlayer() {
                   <Text style={styles.timeT}>{displayDuration}</Text>
                 </View>
               </View>
+
               <View style={styles.spotifyCtrlRow}>
                 <TouchableOpacity onPress={playPrev}><SkipBack size={32} color={theme.text} fill={theme.text} /></TouchableOpacity>
                 <TouchableOpacity onPress={isPlaying ? pauseVideo : resumeVideo} style={[styles.spotifyPlayBtn, { backgroundColor: theme.text }]}>
@@ -407,18 +540,29 @@ export default function GlobalPlayer() {
                   style={[styles.videoOverlay, { opacity: showControls ? 1 : 0, zIndex: 2 }]}
                 >
                   <View style={styles.overlayMain}>
-                    <TouchableOpacity onPress={() => seek(-10)}><SkipBack size={32} color="#FFF" /></TouchableOpacity>
+                    <TouchableOpacity onPress={() => seek(-10)}><SkipBack size={24} color="#FFF" /></TouchableOpacity>
                     <TouchableOpacity onPress={isPlaying ? pauseVideo : resumeVideo} style={styles.overlayPlay}>
-                      {isPlaying ? <Pause size={44} color="#FFF" fill="#FFF" /> : <Play size={44} color="#FFF" fill="#FFF" style={{ marginLeft: 5 }} />}
+                      {isPlaying ? <Pause size={32} color="#FFF" fill="#FFF" /> : <Play size={32} color="#FFF" fill="#FFF" style={{ marginLeft: 3 }} />}
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => seek(10)}><SkipForward size={32} color="#FFF" /></TouchableOpacity>
+                    <TouchableOpacity onPress={() => seek(10)}><SkipForward size={24} color="#FFF" /></TouchableOpacity>
                   </View>
                   
                   <View style={styles.overlayBottom}>
-                    <Text style={styles.overlayTime}>{formatTime(position)} {isUnknownDuration ? '' : `/ ${displayDuration}`}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <Text style={[styles.overlayTime, { marginBottom: 0 }]}>{formatTime(position)} {isUnknownDuration ? '' : `/ ${displayDuration}`}</Text>
+                      {!isYoutube && (
+                        <TouchableOpacity 
+                          onPress={() => player?.enterFullscreen()}
+                          style={{ padding: 5 }}
+                        >
+                          <Maximize size={20} color="#FFF" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    
                     <View 
                       {...panResponder.current.panHandlers}
-                      onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+                      onLayout={(e) => updateBarWidth(e.nativeEvent.layout.width)}
                       style={styles.progressBarTouchable}
                     >
                       <View style={[styles.overlayProgBg, { position: 'relative' }]}>
@@ -428,8 +572,6 @@ export default function GlobalPlayer() {
                     </View>
                   </View>
                 </Animated.View>
-
-
 
                 {isBuffering && <View style={styles.loaderOverlay}><ActivityIndicator size="large" color={theme.primary} /></View>}
               </View>
@@ -454,6 +596,37 @@ export default function GlobalPlayer() {
                   </TouchableOpacity>
                 ))}
               </View>
+              {/* LYRICS SECTION */}
+              {(currentVideo?.description || currentVideo?.snippet?.description) && (
+                <View style={styles.lyricsSection}>
+                  <View style={styles.lyricsHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <BookOpen size={20} color={theme.primary} />
+                      <Text style={[styles.lyricsTitle, { color: theme.text }]}>{t('lyrics')}</Text>
+                    </View>
+                    <View style={styles.fontSizeCtrls}>
+                      <TouchableOpacity 
+                        onPress={() => setLyricsFontSize(prev => Math.max(12, prev - 2))} 
+                        style={[styles.fontSizeBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
+                      >
+                        <Minus size={14} color={theme.text} />
+                      </TouchableOpacity>
+                      <Type size={16} color={theme.primary} />
+                      <TouchableOpacity 
+                        onPress={() => setLyricsFontSize(prev => Math.min(32, prev + 2))} 
+                        style={[styles.fontSizeBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
+                      >
+                        <Plus size={14} color={theme.text} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <View style={[styles.lyricsContent, { backgroundColor: 'rgba(255,255,255,0.02)', borderColor: theme.border }]}>
+                    <Text style={[styles.lyricsText, { color: theme.text, fontSize: lyricsFontSize }]}>
+                      {currentVideo?.description || currentVideo?.snippet?.description}
+                    </Text>
+                  </View>
+                </View>
+              )}
             </ScrollView>
           )}
         </Animated.View>
@@ -462,7 +635,7 @@ export default function GlobalPlayer() {
         <Animated.View style={[styles.miniBar, { opacity: expandAnim.interpolate({ inputRange: [0, 0.3], outputRange: [1, 0] }) }]} pointerEvents={isExpanded ? 'none' : 'auto'}>
           <TouchableOpacity activeOpacity={1} onPress={toggleExpand} style={styles.miniContent}>
             {thumbnail ? <Image source={{ uri: thumbnail }} style={styles.miniArt} /> : <View style={[styles.miniArt, { backgroundColor: theme.primary, justifyContent: 'center', alignItems: 'center' }]}><Text>🎵</Text></View>}
-            <View style={{ flex: 1, marginLeft: 14 }}><Text style={[styles.miniTtl, { color: theme.text }]} numberOfLines={1}>{title}</Text><Text style={styles.miniSts}>{isBuffering ? 'Connecting...' : isPlaying ? 'Playing' : 'Paused'}</Text></View>
+            <View style={{ flex: 1, marginLeft: 14 }}><Text style={[styles.miniTtl, { color: theme.text }]} numberOfLines={1}>{title}</Text><Text style={styles.miniSts}>{isBuffering ? t('connecting') : isPlaying ? t('playing') : t('paused')}</Text></View>
             <TouchableOpacity onPress={() => isPlaying ? pauseVideo() : resumeVideo()}>{isPlaying ? <Pause size={26} color={theme.primary} /> : <Play size={26} color={theme.primary} />}</TouchableOpacity>
           </TouchableOpacity>
         </Animated.View>
@@ -472,58 +645,199 @@ export default function GlobalPlayer() {
 }
 
 const styles = StyleSheet.create({
-  container: { position: 'absolute', left: 0, right: 0, overflow: 'hidden', zIndex: 10000, elevation: 25 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 50, height: 110 },
-  headerBtn: { padding: 8 },
-  headerTtl: { fontSize: 14, fontFamily: 'Outfit-Bold', textTransform: 'uppercase', letterSpacing: 1 },
+  sliderWrapper: {
+    width: width,
+    height: width - 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -20,
+  },
+  artworkSlider: {
+    width: width,
+  },
+  slideItem: {
+    width: width,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lyricsSlideContainer: {
+    width: width - 60,
+    height: width - 80,
+    borderRadius: 32,
+    borderWidth: 1,
+    padding: 24,
+    overflow: 'hidden',
+  },
+  lyricsSlideHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  lyricsSlideTitle: {
+    fontSize: 18,
+    fontFamily: 'Outfit-Bold',
+  },
+  lyricsSlideContent: {
+    paddingBottom: 20,
+  },
+  lyricsSlideText: {
+    lineHeight: 28,
+    fontFamily: 'Outfit-Medium',
+    textAlign: 'center',
+    opacity: 0.8,
+  },
+  fontSizeCtrls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    padding: 4,
+    borderRadius: 20,
+  },
+  fontSizeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pagination: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 20,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  container: { position: 'absolute', left: 0, right: 0, overflow: 'hidden', zIndex: 10000, elevation: 30 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 60, height: 120 },
+  headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
+  headerTtl: { fontSize: 13, fontFamily: 'Outfit-Black', textTransform: 'uppercase', letterSpacing: 2, opacity: 0.8 },
   
-  audioContainer: { flex: 1, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'center' },
-  artworkContainer: { width: width - 64, aspectRatio: 1, borderRadius: 24, overflow: 'hidden', elevation: 20, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 15 },
-  artwork: { width: '100%', height: '100%', borderRadius: 24 },
-  audioInfoArea: { width: '100%', flexDirection: 'row', alignItems: 'center', marginTop: 40, marginBottom: 20 },
-  spotifyTtl: { fontSize: 24, fontFamily: 'Outfit-Bold', marginBottom: 4 },
-  spotifySub: { fontSize: 16, fontFamily: 'Outfit-Medium', opacity: 0.8 },
-  spotifyProgArea: { width: '100%', marginBottom: 30 },
-  progBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, position: 'relative' },
-  progFill: { height: '100%', borderRadius: 2 },
-  progHandle: { width: 12, height: 12, borderRadius: 6, position: 'absolute', top: -4 },
-  timeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
-  timeT: { fontSize: 12, fontFamily: 'Outfit-Medium', color: '#94A3B8' },
-  spotifyCtrlRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingHorizontal: 20 },
-  spotifyPlayBtn: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  audioContainer: { flex: 1, paddingBottom: 40, alignItems: 'center', justifyContent: 'center' },
+  artworkContainer: { 
+    width: width - 80, 
+    aspectRatio: 1, 
+    borderRadius: 32, 
+    overflow: 'hidden', 
+    elevation: 20, 
+    shadowOffset: { width: 0, height: 10 }, 
+    shadowOpacity: 0.3, 
+    shadowRadius: 20,
+    backgroundColor: '#121212',
+    marginTop: -20,
+  },
+  artwork: { width: '100%', height: '100%' },
+  audioInfoArea: { width: '100%', flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 12, paddingHorizontal: 30 },
+  spotifyTtl: { fontSize: 22, fontFamily: 'Outfit-Bold', marginBottom: 2, letterSpacing: -0.5 },
+  spotifySub: { fontSize: 14, fontFamily: 'Outfit-Medium', textTransform: 'uppercase', letterSpacing: 1 },
+  spotifyProgArea: { width: '100%', marginBottom: 20, paddingHorizontal: 30 },
+  progBg: { height: 3, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1.5, position: 'relative' },
+  progFill: { height: '100%', borderRadius: 1.5 },
+  progHandle: { width: 10, height: 10, borderRadius: 5, position: 'absolute', top: -3.5 },
+  timeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  timeT: { fontSize: 11, fontFamily: 'Outfit-Bold', color: '#B3B3B3', opacity: 0.6 },
+  spotifyCtrlRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingHorizontal: 30 },
+  sideBtn: {
+    padding: 10,
+    opacity: 0.9
+  },
+  spotifyPlayBtn: { 
+    width: 68, 
+    height: 68, 
+    borderRadius: 34, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    elevation: 15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+  },
 
   videoScroll: { flex: 1 },
-  videoWrapper: { width: width, aspectRatio: 16 / 9, backgroundColor: '#000' },
-  nativeVideoBox: { width: '100%', height: '100%', justifyContent: 'center' },
+  videoWrapper: { 
+    width: width, 
+    aspectRatio: 16 / 9, 
+    backgroundColor: '#000',
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    overflow: 'hidden',
+  },
   fullVideo: { width: '100%', height: '100%' },
-  videoInfoArea: { paddingHorizontal: 20, marginTop: 20 },
-  videoTtl: { fontSize: 20, fontFamily: 'Outfit-Bold' },
-  videoSub: { fontSize: 14, fontFamily: 'Outfit-Medium', marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 },
+  videoInfoArea: { paddingHorizontal: 24, marginTop: 24 },
+  videoTtl: { fontSize: 22, fontFamily: 'Outfit-Bold', lineHeight: 30 },
+  videoSub: { fontSize: 14, fontFamily: 'Outfit-Black', marginTop: 6, textTransform: 'uppercase', letterSpacing: 1.5, opacity: 0.7 },
   
-  upNextContainer: { paddingHorizontal: 20, marginTop: 30, paddingBottom: 100 },
-  upNextHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
-  upNextTtl: { fontSize: 16, fontFamily: 'Outfit-Bold' },
-  upNextItem: { flexDirection: 'row', gap: 12, marginBottom: 16, alignItems: 'center' },
-  upNextThumb: { width: 120, height: 68, borderRadius: 12 },
+  upNextContainer: { paddingHorizontal: 24, marginTop: 32, paddingBottom: 100 },
+  upNextHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  upNextTtl: { fontSize: 18, fontFamily: 'Outfit-Bold' },
+  upNextItem: { 
+    flexDirection: 'row', 
+    gap: 16, 
+    marginBottom: 20, 
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    padding: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  upNextThumb: { width: 100, height: 60, borderRadius: 12 },
   upNextInfo: { flex: 1 },
-  upNextItemTtl: { fontSize: 14, fontFamily: 'Outfit-Bold' },
-  upNextItemSub: { fontSize: 11, fontFamily: 'Outfit-Medium', marginTop: 4 },
+  upNextItemTtl: { fontSize: 15, fontFamily: 'Outfit-Bold' },
+  upNextItemSub: { fontSize: 12, fontFamily: 'Outfit-Medium', marginTop: 4, opacity: 0.5 },
 
-  videoOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
-  overlayMain: { flexDirection: 'row', alignItems: 'center', gap: 50 },
-  overlayPlay: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  overlayBottom: { position: 'absolute', bottom: 20, left: 20, right: 20 },
-  overlayTime: { color: '#FFF', fontSize: 13, fontFamily: 'Outfit-Bold', marginBottom: 12, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 },
-  progressBarTouchable: { width: '100%', height: 24, justifyContent: 'center' },
-  overlayProgBg: { height: 6, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  overlayProgFill: { height: '100%', borderRadius: 3 },
-  overlayProgHandle: { width: 14, height: 14, borderRadius: 7, position: 'absolute', top: -4.5, marginLeft: -7 },
+  videoOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  overlayMain: { flexDirection: 'row', alignItems: 'center', gap: 30 },
+  overlayPlay: { 
+    width: 64, 
+    height: 64, 
+    borderRadius: 32, 
+    backgroundColor: 'rgba(255,255,255,0.15)', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)'
+  },
+  overlayBottom: { position: 'absolute', bottom: 24, left: 24, right: 24 },
+  overlayTime: { color: '#FFF', fontSize: 14, fontFamily: 'Outfit-Black', marginBottom: 14, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 },
+  progressBarTouchable: { width: '100%', height: 30, justifyContent: 'center' },
+  overlayProgBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2 },
+  overlayProgFill: { height: '100%', borderRadius: 2 },
+  overlayProgHandle: { width: 12, height: 12, borderRadius: 6, position: 'absolute', top: -4, marginLeft: -6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3 },
 
-
-  loaderOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
-  miniBar: { ...StyleSheet.absoluteFillObject, height: 70 },
+  loaderOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
+  miniBar: { 
+    ...StyleSheet.absoluteFillObject, 
+    height: 75, 
+    backgroundColor: 'rgba(18, 18, 18, 0.95)',
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
   miniContent: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
-  miniArt: { width: 48, height: 48, borderRadius: 8 },
-  miniTtl: { fontSize: 14, fontFamily: 'Outfit-Bold' },
-  miniSts: { fontSize: 11, fontFamily: 'Outfit-Medium', color: '#64748B' }
+  miniArt: { width: 50, height: 50, borderRadius: 12 },
+  miniTtl: { fontSize: 15, fontFamily: 'Outfit-Bold' },
+  miniSts: { fontSize: 12, fontFamily: 'Outfit-Medium', color: '#9CA3AF', marginTop: 2 },
+
+  lyricsSection: { paddingHorizontal: 24, marginTop: 10, marginBottom: 120 },
+  lyricsHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
+  lyricsTitle: { fontSize: 18, fontFamily: 'Outfit-Bold' },
+  lyricsContent: { 
+    padding: 20, 
+    borderRadius: 24, 
+    borderWidth: 1,
+    minHeight: 150 
+  },
+  lyricsText: { 
+    lineHeight: 28, 
+    fontFamily: 'Outfit-Medium',
+    opacity: 0.9,
+    textAlign: 'center'
+  }
 });

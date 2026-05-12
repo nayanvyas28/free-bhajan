@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -11,12 +11,14 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useCustomAlert } from '../context/AlertContext';
 import { Phone, MessageSquare, ArrowRight, User } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function LoginScreen({ navigation }) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const { startWhatsAppLogin, verifyWhatsAppLogin } = useAuth();
   const { showAlert } = useCustomAlert();
   
@@ -42,8 +44,8 @@ export default function LoginScreen({ navigation }) {
   const handleNext = async () => {
     if (phone.length < 10) {
       showAlert({
-        title: 'Invalid Phone',
-        message: 'Please enter a valid 10-digit phone number.',
+        title: t('invalidPhone'),
+        message: t('enterValidPhone'),
         type: 'error'
       });
       return;
@@ -65,7 +67,7 @@ export default function LoginScreen({ navigation }) {
         setShowNameField(true);
       }
     } catch (error) {
-      showAlert({ title: 'Error', message: error.message, type: 'error' });
+      showAlert({ title: t('error'), message: error.message, type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -74,8 +76,8 @@ export default function LoginScreen({ navigation }) {
   const handleSendOtp = async () => {
     if (!name) {
       showAlert({
-        title: 'Name Required',
-        message: 'Please enter your name.',
+        title: t('nameRequired'),
+        message: t('enterYourName'),
         type: 'warning'
       });
       return;
@@ -84,12 +86,14 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
-      await startWhatsAppLogin(formattedPhone);
-      setTimer(60);
-      setStep(2);
+      const response = await startWhatsAppLogin(formattedPhone);
+      if (response) {
+        setTimer(60);
+        setStep(2);
+      }
     } catch (error) {
       showAlert({
-        title: 'Error',
+        title: t('error'),
         message: error.message,
         type: 'error'
       });
@@ -101,8 +105,8 @@ export default function LoginScreen({ navigation }) {
   const handleVerifyOtp = async () => {
     if (otp.length < 6) {
       showAlert({
-        title: 'Invalid OTP',
-        message: 'Please enter the 6-digit code.',
+        title: t('invalidOtp'),
+        message: t('enterSixDigit'),
         type: 'error'
       });
       return;
@@ -115,7 +119,7 @@ export default function LoginScreen({ navigation }) {
       navigation.goBack();
     } catch (error) {
       showAlert({
-        title: 'Verification Failed',
+        title: t('verificationFailed'),
         message: error.message,
         type: 'error'
       });
@@ -137,12 +141,12 @@ export default function LoginScreen({ navigation }) {
           <User size={40} color="#FFF" />
         </LinearGradient>
         <Text style={[styles.title, { color: theme.text }]}>
-          {step === 1 ? 'Namaste!' : 'Verify WhatsApp'}
+          {step === 1 ? t('namaste') : t('verifyWhatsApp')}
         </Text>
         <Text style={[styles.subtitle, { color: theme.subtext }]}>
           {step === 1 
-            ? (showNameField ? 'Create your profile' : 'Sign in via WhatsApp OTP')
-            : `Enter the code sent to +91 ${phone}`}
+            ? (showNameField ? t('createProfile') : t('signInWhatsApp'))
+            : `${t('enterCodeSent')} +91 ${phone}`}
         </Text>
       </View>
 
@@ -157,7 +161,7 @@ export default function LoginScreen({ navigation }) {
               </View>
               <TextInput
                 style={[styles.input, { color: theme.text }]}
-                placeholder="WhatsApp Number"
+                placeholder={t('whatsappNumber')}
                 placeholderTextColor={theme.subtext}
                 keyboardType="phone-pad"
                 maxLength={10}
@@ -175,7 +179,7 @@ export default function LoginScreen({ navigation }) {
                 <User size={20} color={theme.primary} style={styles.inputIcon} />
                 <TextInput
                   style={[styles.input, { color: theme.text }]}
-                  placeholder="Your Name"
+                  placeholder={t('yourName')}
                   placeholderTextColor={theme.subtext}
                   value={name}
                   onChangeText={setName}
@@ -194,7 +198,7 @@ export default function LoginScreen({ navigation }) {
               ) : (
                 <>
                   <Text style={styles.buttonText}>
-                    {showNameField ? 'Get WhatsApp OTP' : 'Next'}
+                    {showNameField ? t('getWhatsAppOtp') : t('next')}
                   </Text>
                   <ArrowRight size={20} color="#FFF" />
                 </>
@@ -207,7 +211,7 @@ export default function LoginScreen({ navigation }) {
               <MessageSquare size={20} color={theme.primary} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
-                placeholder="Enter 6-digit OTP"
+                placeholder={t('enterOtp')}
                 placeholderTextColor={theme.subtext}
                 keyboardType="number-pad"
                 maxLength={6}
@@ -225,7 +229,7 @@ export default function LoginScreen({ navigation }) {
                 <ActivityIndicator color="#FFF" />
               ) : (
                 <>
-                  <Text style={styles.buttonText}>Verify & Login</Text>
+                  <Text style={styles.buttonText}>{t('verifyLogin')}</Text>
                   <ArrowRight size={20} color="#FFF" />
                 </>
               )}
@@ -237,7 +241,7 @@ export default function LoginScreen({ navigation }) {
               disabled={loading || timer > 0}
             >
               <Text style={[styles.resendText, { color: timer > 0 ? theme.subtext : theme.primary }]}>
-                {timer > 0 ? `Resend OTP in ${timer}s` : 'Resend OTP'}
+                {timer > 0 ? `${t('resendIn')} ${timer}s` : t('resendOtp')}
               </Text>
             </TouchableOpacity>
 
@@ -249,7 +253,7 @@ export default function LoginScreen({ navigation }) {
               }}
               disabled={loading}
             >
-              <Text style={[styles.changePhoneText, { color: theme.subtext }]}>Change Phone Number</Text>
+              <Text style={[styles.changePhoneText, { color: theme.subtext }]}>{t('changePhone')}</Text>
             </TouchableOpacity>
           </>
         )}

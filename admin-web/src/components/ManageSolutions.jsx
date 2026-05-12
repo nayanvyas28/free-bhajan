@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, Trash2, Edit2, Loader2, Save, X, Lightbulb, Image as ImageIcon, Video, Link as LinkIcon, Eye, EyeOff, Music, Database } from 'lucide-react';
-import { uploadToR2 } from '../lib/r2';
+import { uploadToR2, deleteFromR2 } from '../lib/r2';
 
 export default function ManageSolutions() {
   const [solutions, setSolutions] = useState([]);
@@ -16,18 +16,30 @@ export default function ManageSolutions() {
     image_url: '',
     url: '',
     type: 'video',
+    duration: 0,
     is_visible: true
   });
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-
-  const CATEGORIES = ['Health', 'Wealth', 'Job', 'Family', 'Peace', 'Other'];
+  const [availableCategories, setAvailableCategories] = useState(['Health', 'Wealth', 'Job', 'Family', 'Peace', 'Other']);
 
   useEffect(() => {
     fetchSolutions();
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('name')
+      .eq('type', 'solution');
+    
+    if (data && data.length > 0) {
+      setAvailableCategories(data.map(c => c.name));
+    }
+  };
 
   const fetchSolutions = async () => {
     try {
@@ -52,12 +64,35 @@ export default function ManageSolutions() {
     return idMatch ? idMatch[1] : url;
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      // Auto-set title if empty
+      if (!formData.title) {
+        const name = file.name.split('.').slice(0, -1).join('.');
+        setFormData(prev => ({ ...prev, title: name }));
+      }
+
+      // Extract duration
+      const media = document.createElement(formData.type === 'video' ? 'video' : 'audio');
+      media.preload = 'metadata';
+      media.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(media.src);
+        setFormData(prev => ({ ...prev, duration: Math.floor(media.duration) }));
+      };
+      media.src = URL.createObjectURL(file);
+    }
+  };
+
   const handleManualUpload = async () => {
     if (!selectedFile) return;
     setUploading(true);
     setUploadProgress(0);
     try {
-      const publicUrl = await uploadToR2(selectedFile);
+      const publicUrl = await uploadToR2(selectedFile, (progress) => {
+        setUploadProgress(progress);
+      });
       setUploadProgress(100);
       setFormData({ ...formData, url: publicUrl });
       alert(`${formData.type} uploaded successfully!`);
@@ -98,7 +133,7 @@ export default function ManageSolutions() {
         alert('Added successfully!');
       }
       
-      setFormData({ title: '', description: '', category: 'Health', image_url: '', url: '', type: 'video', is_visible: true });
+      setFormData({ title: '', description: '', category: 'Health', image_url: '', url: '', type: 'video', duration: 0, is_visible: true });
       setEditingId(null);
       setShowAddForm(false);
       setSelectedFile(null);
@@ -119,13 +154,21 @@ export default function ManageSolutions() {
       image_url: item.image_url || '',
       url: item.url || '',
       type: item.type || 'video',
+      duration: item.duration || 0,
       is_visible: item.is_visible !== false
     });
     setShowAddForm(true);
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this solution?')) return;
+    const item = solutions.find(s => s.id === id);
+    if (!window.confirm(`Delete solution "${item?.title}"?`)) return;
+    
+    // Delete from Cloudflare if it's an R2 URL
+    if (item?.url) {
+      await deleteFromR2(item.url);
+    }
+
     const { error } = await supabase.from('solutions').delete().eq('id', id);
     if (!error) fetchSolutions();
   };
@@ -206,7 +249,7 @@ export default function ManageSolutions() {
                           type="file" 
                           accept={formData.type === 'video' ? "video/*" : "audio/*"} 
                           className="hidden" 
-                          onChange={(e) => setSelectedFile(e.target.files[0])} 
+                          onChange={handleFileChange} 
                         />
                       )}
                     </label>
@@ -252,7 +295,7 @@ export default function ManageSolutions() {
                     value={formData.category}
                     onChange={e => setFormData({...formData, category: e.target.value})}
                   >
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    {availableCategories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
@@ -276,6 +319,17 @@ export default function ManageSolutions() {
                     onChange={e => setFormData({...formData, image_url: e.target.value})}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-500 uppercase ml-1">Duration (Seconds)</label>
+                <input 
+                  type="number"
+                  className="w-full bg-[#0F172A] border border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-amber-500 outline-none transition-all font-bold"
+                  placeholder="Auto-detected on file select..."
+                  value={formData.duration}
+                  onChange={e => setFormData({...formData, duration: parseInt(e.target.value) || 0})}
+                />
               </div>
             </div>
 
@@ -346,7 +400,7 @@ export default function ManageSolutions() {
               
               {item.image_url && (
                 <div className="relative w-full h-40 mb-4 rounded-2xl overflow-hidden">
-                  <img src={item.image_url} alt={item.title} className="w-full h-full object-cover" />
+                  <img src={item.image_url} alt={item.title} className="w-full h-full object-cover object-top" />
                   {item.url && (item.type === 'video') && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                       <Video size={32} className="text-white" />
@@ -367,7 +421,12 @@ export default function ManageSolutions() {
                 <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center">
                   {item.type === 'video' ? <Video size={20} /> : item.type === 'audio' ? <Music size={20} /> : <Lightbulb size={20} />}
                 </div>
-                <span className="text-xs font-bold capitalize">{item.type || 'Text'} Upaye</span>
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold capitalize">{item.type || 'Text'} Upaye</span>
+                  {item.duration > 0 && (
+                    <span className="text-[10px] text-amber-500 font-black">{Math.floor(item.duration / 60)}:{(item.duration % 60).toString().padStart(2, '0')}</span>
+                  )}
+                </div>
               </div>
             </div>
           ))}

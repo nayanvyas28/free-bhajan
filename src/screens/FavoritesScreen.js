@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, Text, TouchableOpacity, Image } from 'react-native';
+import { View, FlatList, StyleSheet, Text, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { getFavorites, removeFavorite } from '../storage/favorites';
 import VideoCard from '../components/VideoCard';
 import Header from '../components/Header';
@@ -7,7 +7,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Heart, Lock, LogIn } from 'lucide-react-native';
+import { Heart, Lock, LogIn, Video, Music, Sparkles } from 'lucide-react-native';
 import ConfirmationModal from '../components/ConfirmationModal';
 
 export default function FavoritesScreen({ navigation }) {
@@ -34,9 +34,20 @@ export default function FavoritesScreen({ navigation }) {
     }
   }, [navigation, isAuthenticated]);
 
-  const filteredData = favorites.filter(item => 
-    activeTab === 'video' ? (item.type === 'youtube' || !item.type) : (item.type === 'audio')
-  );
+  const filteredData = favorites.filter(item => {
+    const isSol = item.is_solution || !!item.image_url;
+    
+    if (activeTab === 'u_video') return isSol && item.type === 'video';
+    if (activeTab === 'u_audio') return isSol && item.type === 'audio';
+    
+    if (activeTab === 'video') {
+      return !isSol && (item.type === 'youtube' || item.type === 'video' || !item.type);
+    }
+    if (activeTab === 'audio') {
+      return !isSol && item.type === 'audio';
+    }
+    return false;
+  });
 
   const handleToggleFavorite = (video) => {
     setVideoToRemove(video);
@@ -53,8 +64,8 @@ export default function FavoritesScreen({ navigation }) {
   };
 
   const renderItem = ({ item }) => {
-    if (activeTab === 'audio') {
-      // Robust image detection for both curated and youtube items
+    // Audio items (both Bhajan and Upaye) use the compact horizontal style
+    if (activeTab === 'audio' || activeTab === 'u_audio') {
       const imageUrl = 
         item.thumbnail || 
         item.snippet?.thumbnails?.high?.url || 
@@ -78,7 +89,7 @@ export default function FavoritesScreen({ navigation }) {
               {item.title || item.snippet?.title}
             </Text>
             <Text style={[styles.audioSubtitle, { color: theme.subtext }]} numberOfLines={1}>
-              {item.category || item.snippet?.channelTitle || 'Bhajan'}
+              {item.is_solution ? t(item.category) : (item.category || item.snippet?.channelTitle || 'Bhajan')}
             </Text>
           </View>
 
@@ -92,6 +103,7 @@ export default function FavoritesScreen({ navigation }) {
       );
     }
 
+    // Video items (both Bhajan and Upaye) use the large VideoCard style
     return (
       <VideoCard
         video={item}
@@ -128,25 +140,42 @@ export default function FavoritesScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Header title={t('favorites')} />
+      <Header />
 
-      <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'video' && { borderBottomColor: theme.primary, borderBottomWidth: 3 }]}
-          onPress={() => setActiveTab('video')}
-        >
-          <Text style={[styles.tabText, { color: activeTab === 'video' ? theme.primary : theme.subtext }]}>
-            VIDEOS
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'audio' && { borderBottomColor: theme.primary, borderBottomWidth: 3 }]}
-          onPress={() => setActiveTab('audio')}
-        >
-          <Text style={[styles.tabText, { color: activeTab === 'audio' ? theme.primary : theme.subtext }]}>
-            AUDIO
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.headerArea}>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>{t('favorites')}</Text>
+      </View>
+
+      <View style={styles.tabScrollWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabContainer}>
+          {[
+            { id: 'video', label: t('bhajanVideo'), icon: Video },
+            { id: 'audio', label: t('bhajanAudio'), icon: Music },
+            { id: 'u_video', label: t('upayeVideo'), icon: Sparkles },
+            { id: 'u_audio', label: t('upayeAudio'), icon: Music }
+          ].map(tab => (
+            <TouchableOpacity 
+              key={tab.id}
+              style={[
+                styles.tab, 
+                { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' },
+                activeTab === tab.id && { backgroundColor: 'rgba(255,193,7,0.1)', borderColor: theme.primary }
+              ]}
+              onPress={() => setActiveTab(tab.id)}
+            >
+              <tab.icon 
+                size={18} 
+                color={activeTab === tab.id ? theme.primary : theme.subtext} 
+              />
+              <Text style={[
+                styles.tabText, 
+                { color: activeTab === tab.id ? theme.primary : theme.subtext }
+              ]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       <FlatList
@@ -154,14 +183,17 @@ export default function FavoritesScreen({ navigation }) {
         keyExtractor={(item) => item.id?.videoId || item.id?.toString() || Math.random().toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Heart size={64} color={theme.primary} fill={theme.card} />
+            <View style={styles.emptyIconBox}>
+              <Heart size={40} color={theme.primary} fill={theme.primary} />
+            </View>
             <Text style={[styles.emptyTitle, { color: theme.text }]}>
-              {activeTab === 'video' ? 'No Liked Videos' : 'No Liked Audio'}
+              {t('noLikedItems')}
             </Text>
             <Text style={[styles.emptySubtitle, { color: theme.subtext }]}>
-              Save your favorite {activeTab}s to listen to them anytime.
+              {t('saveFavoriteDivine')}
             </Text>
           </View>
         }
@@ -182,47 +214,57 @@ export default function FavoritesScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  listContent: { paddingTop: 16, paddingBottom: 100 },
+  headerArea: { paddingHorizontal: 24, paddingTop: 20 },
+  headerTitle: { fontSize: 28, fontFamily: 'Outfit-Bold' },
+  listContent: { paddingTop: 16, paddingBottom: 150 },
+  tabScrollWrapper: { marginTop: 15, marginBottom: 10 },
   tabContainer: {
-    flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 5,
-    backgroundColor: 'transparent',
+    gap: 12,
+    alignItems: 'center',
   },
   tab: {
-    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    marginHorizontal: 4,
-    borderRadius: 12,
+    height: 48,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 10,
   },
   tabText: {
-    fontSize: 11,
-    fontFamily: 'Outfit-Black',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
+    fontSize: 13,
+    fontFamily: 'Outfit-Bold',
+    letterSpacing: 0.5,
   },
   emptyContainer: { 
     flex: 1, 
     alignItems: 'center', 
     justifyContent: 'center', 
-    marginTop: 120, 
+    marginTop: 100, 
     paddingHorizontal: 50 
   },
+  emptyIconBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,193,7,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   emptyTitle: { 
-    fontSize: 18, 
+    fontSize: 20, 
     fontFamily: 'Outfit-Bold', 
-    marginTop: 24,
     textAlign: 'center'
   },
   emptySubtitle: { 
-    fontSize: 13, 
+    fontSize: 14, 
     fontFamily: 'Outfit-Medium', 
     textAlign: 'center', 
     marginTop: 10, 
-    lineHeight: 20,
-    opacity: 0.6
+    lineHeight: 22,
+    opacity: 0.5
   },
   authPrompt: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   lockCircle: { width: 100, height: 100, borderRadius: 50, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
@@ -233,36 +275,39 @@ const styles = StyleSheet.create({
   audioItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 20,
-    marginBottom: 12,
-    marginHorizontal: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    padding: 14,
+    borderRadius: 24,
+    marginBottom: 16,
+    marginHorizontal: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.04)',
   },
   audioThumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    backgroundColor: '#1A1A1A',
   },
   audioDetails: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 18,
     justifyContent: 'center',
   },
   audioTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'Outfit-Bold',
     marginBottom: 4,
   },
   audioSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'Outfit-Medium',
-    opacity: 0.4,
+    opacity: 0.5,
   },
   audioFavBtn: {
-    padding: 10,
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
