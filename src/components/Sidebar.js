@@ -48,18 +48,18 @@ export default function Sidebar() {
     }).start();
   }, [isOpen]);
 
-  const handleNav = (screen) => {
+  const handleNav = (screen, params = {}) => {
     closeSidebar();
-    navigation.navigate(screen);
+    navigation.navigate(screen, params);
   };
 
   const menuItems = [
-    { id: 'home', title: t('home') || 'Home', icon: Home, screen: 'MainTabs' },
+    { id: 'home', title: t('home') || 'Home', icon: Home, screen: 'MainTabs', params: { screen: 'HomeTab' } },
     { id: 'liked', title: t('liked') || 'Liked Content', icon: Heart, screen: 'Favorites' },
     { id: 'calendar', title: t('calendar') || 'Spiritual Calendar', icon: Calendar, screen: 'Calendar' },
-    { id: 'katha', title: 'Vrat Katha', icon: BookOpen, screen: 'Katha' },
-    { id: 'solutions', title: 'Solutions (Upay)', icon: Sparkles, screen: 'Solution' },
-    { id: 'aarti', title: 'MantraPuja Aarti', icon: Flame, screen: 'Aarti' },
+    { id: 'katha', title: 'Vrat Katha', icon: BookOpen, screen: 'Katha', params: { kathaId: 'latest' } },
+    { id: 'solutions', title: 'Solutions (Upay)', icon: Sparkles, screen: 'MainTabs', params: { screen: 'Solution' } },
+    { id: 'aarti', title: 'MantraPuja Aarti', icon: Flame, screen: 'MainTabs', params: { screen: 'Aarti' } },
     { id: 'audio', title: 'Audio Bhajans', icon: Music, screen: 'Audio' },
   ];
 
@@ -128,7 +128,7 @@ export default function Sidebar() {
             <TouchableOpacity 
               key={item.id} 
               style={styles.menuItem}
-              onPress={() => handleNav(item.screen)}
+              onPress={() => handleNav(item.screen, item.params)}
             >
               <View style={[styles.iconContainer, { backgroundColor: theme.primary + '15' }]}>
                 <item.icon size={20} color={theme.primary} />

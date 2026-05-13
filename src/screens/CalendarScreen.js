@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   
   eventsSection: { paddingHorizontal: 20, marginTop: 30 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
-  sectionTitle: { fontSize: 20, fontFamily: 'Outfit-Bold' },
+  sectionTitle: { fontSize: 13, fontFamily: 'Outfit-Black', textTransform: 'uppercase', letterSpacing: 1.5, opacity: 0.8 },
   
   eventCard: {
     flexDirection: 'row',

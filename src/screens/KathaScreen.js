@@ -63,8 +63,29 @@ export default function KathaScreen({ route, navigation }) {
 
   const fetchKatha = async () => {
     setLoading(true);
-    // Check if kathaId is a UUID or static key
-    if (kathaId.length > 20) {
+    // Check if kathaId is a UUID, static key, or 'latest'
+    if (kathaId === 'latest') {
+      try {
+        const { data, error } = await supabase
+          .from('kathas')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1);
+        
+        const singleData = data && data.length > 0 ? data[0] : null;
+        if (singleData) {
+          setKatha({
+            ...singleData,
+            image: singleData.image_url,
+            duration: singleData.duration || 0
+          });
+        } else {
+          setKatha(KATHA_DATA['ekadashi_katha']);
+        }
+      } catch (err) {
+        setKatha(KATHA_DATA['ekadashi_katha']);
+      }
+    } else if (kathaId.length > 20) {
       try {
         const { data, error } = await supabase
           .from('kathas')
