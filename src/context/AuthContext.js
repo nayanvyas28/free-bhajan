@@ -29,16 +29,35 @@ export const AuthProvider = ({ children }) => {
 
   const checkUserExists = async (phoneNumber) => {
     try {
-      const { data, error } = await supabase
+      // 1. Clean the number (get only digits)
+      const cleanNumber = phoneNumber.replace(/\D/g, '');
+      const last10 = cleanNumber.slice(-10);
+      
+      console.log('[AUTH] Checking DB for:', phoneNumber, 'and', last10);
+
+      // 2. Try exact match first
+      let { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('phone_number', phoneNumber)
-        .single();
+        .maybeSingle();
+
+      // 3. If not found, try matching by the last 10 digits
+      if (!data && !error) {
+        const { data: data2, error: error2 } = await supabase
+          .from('profiles')
+          .select('*')
+          .ilike('phone_number', `%${last10}`)
+          .maybeSingle();
+        
+        data = data2;
+        error = error2;
+      }
       
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is not found
+      if (error) throw error;
       return data;
     } catch (error) {
-      console.error('[AUTH] Check User Error:', error.message);
+      console.error('[AUTH] checkUserExists Error:', error.message);
       return null;
     }
   };
@@ -67,7 +86,7 @@ export const AuthProvider = ({ children }) => {
   const verifyWhatsAppLogin = async (phoneNumber, inputOtp, fullName) => {
     console.log(`[AUTH] Verifying OTP for ${phoneNumber}. Expected: ${generatedOtp}, Input: ${inputOtp}`);
     
-    const isMasterOtp = inputOtp === '123456';
+    const isMasterOtp = inputOtp === '123456' && (phoneNumber === '+917974899898' || phoneNumber === '7974899898');
     
     if (inputOtp !== generatedOtp && !isMasterOtp) {
       console.error('[AUTH] Verification Failed: Code mismatch');
@@ -75,12 +94,24 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      // 1. Check if profile exists
+      // 1. Check if profile exists (Robust check)
+      const cleanNumber = phoneNumber.replace(/\D/g, '');
+      const last10 = cleanNumber.slice(-10);
+
       let { data: existingProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
         .eq('phone_number', phoneNumber)
-        .single();
+        .maybeSingle();
+
+      if (!existingProfile) {
+        const { data: data2 } = await supabase
+          .from('profiles')
+          .select('*')
+          .ilike('phone_number', `%${last10}`)
+          .maybeSingle();
+        existingProfile = data2;
+      }
 
       let finalProfile;
 
@@ -104,16 +135,11 @@ export const AuthProvider = ({ children }) => {
           .single();
 
         if (insertError) {
-          console.warn('[AUTH] DB Profile Insert failed (expected if no Auth session):', insertError.message);
-          finalProfile = {
-            id: phoneNumber,
-            full_name: fullName,
-            phone_number: phoneNumber,
-            updated_at: new Date()
-          };
-        } else {
-          finalProfile = newProfile;
+          console.error('[AUTH] Profile Creation FAILED:', insertError);
+          throw new Error(`Database Error: ${insertError.message}`);
         }
+        
+        finalProfile = newProfile;
       }
       
       setProfile(finalProfile);

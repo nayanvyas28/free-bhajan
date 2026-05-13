@@ -25,7 +25,8 @@ import {
   ChevronRight,
   Music,
   Flame,
-  BookOpen
+  BookOpen,
+  Sparkles
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -57,6 +58,7 @@ export default function Sidebar() {
     { id: 'liked', title: t('liked') || 'Liked Content', icon: Heart, screen: 'Favorites' },
     { id: 'calendar', title: t('calendar') || 'Spiritual Calendar', icon: Calendar, screen: 'Calendar' },
     { id: 'katha', title: 'Vrat Katha', icon: BookOpen, screen: 'Katha' },
+    { id: 'solutions', title: 'Solutions (Upay)', icon: Sparkles, screen: 'Solution' },
     { id: 'aarti', title: 'MantraPuja Aarti', icon: Flame, screen: 'Aarti' },
     { id: 'audio', title: 'Audio Bhajans', icon: Music, screen: 'Audio' },
   ];
@@ -131,7 +133,9 @@ export default function Sidebar() {
               <View style={[styles.iconContainer, { backgroundColor: theme.primary + '15' }]}>
                 <item.icon size={20} color={theme.primary} />
               </View>
-              <Text style={[styles.menuText, { color: theme.text }]}>{item.title}</Text>
+              <Text style={[styles.menuText, { color: theme.text }]}>
+                {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
+              </Text>
               <ChevronRight size={16} color={theme.border} />
             </TouchableOpacity>
           ))}
@@ -148,13 +152,15 @@ export default function Sidebar() {
               <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
                 <item.icon size={20} color={theme.text} />
               </View>
-              <Text style={[styles.menuText, { color: theme.text }]}>{item.title}</Text>
+              <Text style={[styles.menuText, { color: theme.text }]}>
+                {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
         <View style={styles.footer}>
-          <Text style={[styles.version, { color: theme.subtext }]}>v1.0.0 Stable</Text>
+          <Text style={[styles.version, { color: theme.subtext }]}>v1.1.0 Stable</Text>
         </View>
       </Animated.View>
     </View>

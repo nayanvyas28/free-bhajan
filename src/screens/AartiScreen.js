@@ -124,7 +124,7 @@ export default function AartiScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Header customTitle="MantraPuja Aarti" />
+      <Header />
       
       <FlatList
         data={filteredAartis}

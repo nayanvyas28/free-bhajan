@@ -30,6 +30,7 @@ export default function GlobalPlayer() {
   const prevUrlRef = useRef(null);
   const isPlayingRef = useRef(isPlaying);
   const ytPlayerRef = useRef(null);
+  const videoViewRef = useRef(null);
 
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
@@ -202,14 +203,35 @@ export default function GlobalPlayer() {
     };
   }, [player, isYoutube, directUrl, currentVideo]); // Added currentVideo to dependency to refresh on data changes
 
-  // Sync Play/Pause state
+  const isUpdatingFromPlayer = useRef(false);
+
+  // Sync Video Player state back to App Context
   useEffect(() => {
     if (!player || isYoutube) return;
+    
+    const sub = player.addListener('playingChange', (p) => {
+      if (isUpdatingFromPlayer.current) return;
+      if (p) {
+        if (!isPlayingRef.current) resumeVideo();
+      } else {
+        if (isPlayingRef.current) pauseVideo();
+      }
+    });
+    
+    return () => sub.remove();
+  }, [player, isYoutube, resumeVideo, pauseVideo]);
+
+  // Sync App Context state TO Video Player
+  useEffect(() => {
+    if (!player || isYoutube) return;
+    isUpdatingFromPlayer.current = true;
     if (isPlaying) {
       player.play();
     } else {
       player.pause();
     }
+    // Release the lock after a short delay
+    setTimeout(() => { isUpdatingFromPlayer.current = false; }, 100);
   }, [isPlaying, isYoutube, player]);
 
   // YouTube Time Sync
@@ -311,8 +333,13 @@ export default function GlobalPlayer() {
         isDraggingRef.current = true;
         setIsDragging(true);
         
-        const bX = evt.nativeEvent.pageX - evt.nativeEvent.locationX;
-        updateBarX(bX);
+        // Accurate bar positioning
+        const bWidth = barWidthRef.current || 1;
+        const touchX = evt.nativeEvent.pageX;
+        // Estimate bar start based on screen padding (usually 24 or 30)
+        const estimatedBarX = isYoutubeRef.current ? 24 : 30; 
+        updateBarX(evt.nativeEvent.pageX - evt.nativeEvent.locationX);
+
         if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
       },
       onPanResponderMove: (evt, gestureState) => {
@@ -321,10 +348,15 @@ export default function GlobalPlayer() {
         
         const touchX = gestureState.moveX || evt.nativeEvent.pageX;
         const bWidth = barWidthRef.current || 1;
+        const bX = barXRef.current || 0;
         
-        let newPct = (touchX - barXRef.current) / bWidth;
+        let newPct = (touchX - bX) / bWidth;
         newPct = Math.min(Math.max(newPct, 0), 1);
         setDragProgress(newPct * 100);
+        
+        // Update local position so time display changes while dragging
+        const tempPosition = Math.floor(newPct * dur);
+        setPosition(tempPosition);
       },
       onPanResponderRelease: (evt, gestureState) => {
         const dur = getEffectiveDuration();
@@ -335,8 +367,9 @@ export default function GlobalPlayer() {
         
         const touchX = gestureState.moveX || evt.nativeEvent.pageX;
         const bWidth = barWidthRef.current || 1;
+        const bX = barXRef.current || 0;
         
-        let newPct = (touchX - barXRef.current) / bWidth;
+        let newPct = (touchX - bX) / bWidth;
         newPct = Math.min(Math.max(newPct, 0), 1);
         const newPosition = Math.floor(newPct * dur);
         
@@ -355,11 +388,8 @@ export default function GlobalPlayer() {
         }
         
         resumeVideo();
-        
-        setTimeout(() => { 
-          isSeekingRef.current = false; 
-        }, 1000); 
-        setShowControls(true);
+        setTimeout(() => { isSeekingRef.current = false; }, 1000); 
+        handleVideoTouch(); // Refresh controls timeout
       }
     })
   );
@@ -384,18 +414,30 @@ export default function GlobalPlayer() {
 
   const thumbnail = currentVideo?.thumbnail || currentVideo?.image_url || currentVideo?.snippet?.thumbnails?.high?.url;
   const title = currentVideo?.title || currentVideo?.snippet?.title || 'Divine Bhajan';
-  const category = (
-    currentVideo?.subType === 'Katha' || 
-    currentVideo?.is_katha || 
-    title.toLowerCase().includes('katha') || 
-    title.includes('कथा')
-  ) ? t('katha').toUpperCase() : (
-    (currentVideo?.category && currentVideo?.category !== 'Bhajan') 
-      ? currentVideo?.category.toUpperCase() 
-      : (title.toLowerCase().includes('aarti') || currentVideo?.subType === 'Aarti' ? 'AARTI' : t('bhajan').toUpperCase())
-  );
+  const category = (() => {
+    const rawSubType = currentVideo?.subType || currentVideo?.sub_type;
+    const rawCategory = currentVideo?.category;
+    
+    // 1. Explicit Sub-Type from DB (Mantra, Katha, Bhajan)
+    if (rawSubType && rawSubType !== 'Bhajan') return rawSubType.toUpperCase();
+    
+    // 2. Detect from Title
+    const lowerTitle = title.toLowerCase();
+    if (lowerTitle.includes('katha') || lowerTitle.includes('कथा')) return t('katha').toUpperCase();
+    if (lowerTitle.includes('mantra') || lowerTitle.includes('मंत्र')) return t('mantra').toUpperCase();
+    if (lowerTitle.includes('aarti') || lowerTitle.includes('आरती')) return 'AARTI';
+    
+    // 3. Fallback to Category Name if it's not generic 'Bhajan'
+    if (rawCategory && rawCategory !== 'Bhajan' && rawCategory !== 'All') return rawCategory.toUpperCase();
+    
+    // 4. Ultimate Fallback
+    return t('bhajan').toUpperCase();
+  })();
 
-  const upNext = queue.filter(v => (v.id?.videoId || v.id) !== (currentVideo.id?.videoId || currentVideo.id)).slice(0, 10);
+  const currentIdxInQueue = queue.findIndex(v => (v.id?.videoId || v.id) === (currentVideo.id?.videoId || currentVideo.id));
+  const upNext = (currentIdxInQueue !== -1) 
+    ? queue.slice(currentIdxInQueue + 1, currentIdxInQueue + 11) 
+    : queue.filter(v => (v.id?.videoId || v.id) !== (currentVideo.id?.videoId || currentVideo.id)).slice(0, 10);
 
   return (
     <Animated.View style={[styles.container, {
@@ -461,7 +503,7 @@ export default function GlobalPlayer() {
                       </View>
                       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.lyricsSlideContent}>
                         <Text style={[styles.lyricsSlideText, { color: theme.text, fontSize: lyricsFontSize }]}>
-                          {currentVideo?.description || currentVideo?.snippet?.description || t('lyricsNotAvailable')}
+                          {currentVideo?.description || currentVideo?.snippet?.description || `Lyrics not available for this ${category.toLowerCase() || 'song'}.`}
                         </Text>
                       </ScrollView>
                     </View>
@@ -522,10 +564,22 @@ export default function GlobalPlayer() {
                     ref={ytPlayerRef}
                     key={currentVideo?.id?.videoId || 'yt-player'}
                     height={width * 0.5625} width={width} play={isPlaying} videoId={currentVideo?.id?.videoId}
+                    onChangeState={(state) => {
+                      if (state === 'playing') resumeVideo();
+                      else if (state === 'paused' || state === 'ended') pauseVideo();
+                    }}
                     initialPlayerParams={{ rel: 0, modestbranding: 1, controls: 0 }}
                   />
                 ) : (
-                  <VideoView key={directUrl} player={player} style={styles.fullVideo} contentFit="contain" nativeControls={false} />
+                  <VideoView 
+                    ref={videoViewRef}
+                    key={directUrl} 
+                    player={player} 
+                    style={styles.fullVideo} 
+                    contentFit="contain" 
+                    nativeControls={false} 
+                    allowsFullscreen={true}
+                  />
                 )}
 
                 {/* Touch Layer to toggle controls */}
@@ -539,21 +593,44 @@ export default function GlobalPlayer() {
                   pointerEvents={showControls ? 'auto' : 'none'}
                   style={[styles.videoOverlay, { opacity: showControls ? 1 : 0, zIndex: 2 }]}
                 >
+                  {/* Top Controls (Close/Minimize if needed) */}
+                  <View style={styles.overlayTop}>
+                    {/* Empty for now but helps with spacing */}
+                  </View>
+
+                  {/* Center Controls */}
                   <View style={styles.overlayMain}>
-                    <TouchableOpacity onPress={() => seek(-10)}><SkipBack size={24} color="#FFF" /></TouchableOpacity>
+                    <View style={styles.mainControlGroup}>
+                      <TouchableOpacity onPress={playPrev} style={styles.overlaySideBtn}><SkipBack size={30} color="#FFF" fill="#FFF" /></TouchableOpacity>
+                      <TouchableOpacity onPress={() => seek(-10)} style={styles.seekBtn}><Text style={styles.seekText}>-10s</Text></TouchableOpacity>
+                    </View>
+                    
                     <TouchableOpacity onPress={isPlaying ? pauseVideo : resumeVideo} style={styles.overlayPlay}>
-                      {isPlaying ? <Pause size={32} color="#FFF" fill="#FFF" /> : <Play size={32} color="#FFF" fill="#FFF" style={{ marginLeft: 3 }} />}
+                      {isPlaying ? <Pause size={42} color="#FFF" fill="#FFF" /> : <Play size={42} color="#FFF" fill="#FFF" style={{ marginLeft: 4 }} />}
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => seek(10)}><SkipForward size={24} color="#FFF" /></TouchableOpacity>
+
+                    <View style={styles.mainControlGroup}>
+                      <TouchableOpacity onPress={() => seek(10)} style={styles.seekBtn}><Text style={styles.seekText}>+10s</Text></TouchableOpacity>
+                      <TouchableOpacity onPress={playNext} style={styles.overlaySideBtn}><SkipForward size={30} color="#FFF" fill="#FFF" /></TouchableOpacity>
+                    </View>
                   </View>
                   
+                  {/* Bottom Controls */}
                   <View style={styles.overlayBottom}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <Text style={[styles.overlayTime, { marginBottom: 0 }]}>{formatTime(position)} {isUnknownDuration ? '' : `/ ${displayDuration}`}</Text>
+                    <View style={styles.bottomInfoRow}>
+                      <Text style={styles.overlayTime}>{formatTime(position)} {isUnknownDuration ? '' : `/ ${displayDuration}`}</Text>
                       {!isYoutube && (
                         <TouchableOpacity 
-                          onPress={() => player?.enterFullscreen()}
-                          style={{ padding: 5 }}
+                          onPress={() => {
+                            try {
+                              if (videoViewRef.current && typeof videoViewRef.current.enterFullscreen === 'function') {
+                                videoViewRef.current.enterFullscreen();
+                              } else if (player && typeof player.enterFullscreen === 'function') {
+                                player.enterFullscreen();
+                              }
+                            } catch (e) {}
+                          }}
+                          style={styles.fullscreenBtn}
                         >
                           <Maximize size={20} color="#FFF" />
                         </TouchableOpacity>
@@ -565,7 +642,7 @@ export default function GlobalPlayer() {
                       onLayout={(e) => updateBarWidth(e.nativeEvent.layout.width)}
                       style={styles.progressBarTouchable}
                     >
-                      <View style={[styles.overlayProgBg, { position: 'relative' }]}>
+                      <View style={styles.overlayProgBg} pointerEvents="none">
                         <View style={[styles.overlayProgFill, { width: isUnknownDuration ? '0%' : `${progressPct}%`, backgroundColor: theme.primary }]} />
                         <View style={[styles.overlayProgHandle, { left: isUnknownDuration ? '0%' : `${progressPct}%`, backgroundColor: theme.primary }]} />
                       </View>
@@ -636,7 +713,14 @@ export default function GlobalPlayer() {
           <TouchableOpacity activeOpacity={1} onPress={toggleExpand} style={styles.miniContent}>
             {thumbnail ? <Image source={{ uri: thumbnail }} style={styles.miniArt} /> : <View style={[styles.miniArt, { backgroundColor: theme.primary, justifyContent: 'center', alignItems: 'center' }]}><Text>🎵</Text></View>}
             <View style={{ flex: 1, marginLeft: 14 }}><Text style={[styles.miniTtl, { color: theme.text }]} numberOfLines={1}>{title}</Text><Text style={styles.miniSts}>{isBuffering ? t('connecting') : isPlaying ? t('playing') : t('paused')}</Text></View>
-            <TouchableOpacity onPress={() => isPlaying ? pauseVideo() : resumeVideo()}>{isPlaying ? <Pause size={26} color={theme.primary} /> : <Play size={26} color={theme.primary} />}</TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+              <TouchableOpacity onPress={() => isPlaying ? pauseVideo() : resumeVideo()}>
+                {isPlaying ? <Pause size={28} color={theme.primary} /> : <Play size={28} color={theme.primary} />}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleClose} style={{ padding: 4 }}>
+                <X size={22} color={theme.subtext} />
+              </TouchableOpacity>
+            </View>
           </TouchableOpacity>
         </Animated.View>
       </LinearGradient>
@@ -793,22 +877,29 @@ const styles = StyleSheet.create({
   upNextItemTtl: { fontSize: 15, fontFamily: 'Outfit-Bold' },
   upNextItemSub: { fontSize: 12, fontFamily: 'Outfit-Medium', marginTop: 4, opacity: 0.5 },
 
-  videoOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  overlayMain: { flexDirection: 'row', alignItems: 'center', gap: 30 },
+  videoOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'space-between', paddingVertical: 20 },
+  overlayTop: { height: 40, width: '100%' },
+  overlayMain: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', paddingHorizontal: 20 },
+  mainControlGroup: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, justifyContent: 'center' },
+  overlaySideBtn: { padding: 10 },
+  seekBtn: { width: 44, alignItems: 'center' },
+  seekText: { color: '#FFF', fontSize: 11, fontFamily: 'Outfit-Bold', opacity: 0.9 },
   overlayPlay: { 
-    width: 64, 
-    height: 64, 
-    borderRadius: 32, 
-    backgroundColor: 'rgba(255,255,255,0.15)', 
+    width: 84, 
+    height: 84, 
+    borderRadius: 42, 
+    backgroundColor: 'rgba(255,255,255,0.2)', 
     justifyContent: 'center', 
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)'
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.4)',
   },
-  overlayBottom: { position: 'absolute', bottom: 24, left: 24, right: 24 },
-  overlayTime: { color: '#FFF', fontSize: 14, fontFamily: 'Outfit-Black', marginBottom: 14, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 },
-  progressBarTouchable: { width: '100%', height: 30, justifyContent: 'center' },
-  overlayProgBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2 },
+  overlayBottom: { paddingHorizontal: 24, paddingBottom: 10, width: '100%' },
+  bottomInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  overlayTime: { color: '#FFF', fontSize: 13, fontFamily: 'Outfit-Bold', textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 },
+  fullscreenBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12 },
+  progressBarTouchable: { width: '100%', height: 40, justifyContent: 'center' },
+  overlayProgBg: { height: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 3, position: 'relative' },
   overlayProgFill: { height: '100%', borderRadius: 2 },
   overlayProgHandle: { width: 12, height: 12, borderRadius: 6, position: 'absolute', top: -4, marginLeft: -6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3 },
 

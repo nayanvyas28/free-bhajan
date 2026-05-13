@@ -65,7 +65,7 @@ export default function ProfileScreen({ navigation }) {
           style: 'destructive', 
           onPress: async () => {
             await signOut();
-            navigation.replace('Main');
+            navigation.replace('MainTabs');
           } 
         }
       ]

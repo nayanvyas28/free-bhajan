@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 import { 
   Plus, 
@@ -10,7 +11,8 @@ import {
   X,
   Loader2,
   BookOpen,
-  MapPin
+  MapPin,
+  Upload
 } from 'lucide-react';
 
 export default function ManageCalendar() {
@@ -50,6 +52,74 @@ export default function ManageCalendar() {
   const fetchKathas = async () => {
     const { data } = await supabase.from('kathas').select('id, title, content, content_hi');
     setKathas(data || []);
+  };
+
+  const fileInputRef = useRef(null);
+
+  const handleBulkUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data.length === 0) {
+          alert('Excel file is empty!');
+          setLoading(false);
+          return;
+        }
+
+        // Clean data for Supabase
+        const cleanedData = data.map(row => ({
+          title: row.title || row.Title || '',
+          title_hi: row.title_hi || row.Title_HI || row.title_hindi || '',
+          event_date: row.event_date || row.Date || row.Event_Date || new Date().toISOString().split('T')[0],
+          type: row.type || row.Type || 'Festival',
+          tithi: row.tithi || row.Tithi || '',
+          paksha: row.paksha || row.Paksha || 'Shukla',
+          katha_id: row.katha_id || row.Katha_ID || null
+        }));
+
+        const { error } = await supabase.from('festivals').insert(cleanedData);
+
+        if (error) {
+          console.error('Error inserting bulk events:', error);
+          alert('Error: ' + error.message);
+        } else {
+          alert(`Successfully uploaded ${cleanedData.length} events! 🙏`);
+          fetchEvents();
+        }
+      } catch (err) {
+        console.error('Bulk upload error:', err);
+        alert('Error parsing Excel file.');
+      }
+      setLoading(false);
+    };
+    reader.readAsBinaryString(file);
+    // Reset input
+    e.target.value = null;
+  };
+
+  const downloadTemplate = () => {
+    const template = [{
+      title: 'Festival Name',
+      title_hi: 'त्यौहार का नाम',
+      event_date: '2024-05-12',
+      type: 'Festival',
+      tithi: 'Ekadashi',
+      paksha: 'Shukla'
+    }];
+    const ws = XLSX.utils.json_to_sheet(template);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "CalendarTemplate");
+    XLSX.writeFile(wb, "Calendar_Bulk_Upload_Template.xlsx");
   };
 
   const handleSave = async (e) => {
@@ -119,25 +189,49 @@ export default function ManageCalendar() {
           </h1>
           <p className="text-slate-400 mt-1 font-medium">Manage festivals, Ekadashis and Vrats</p>
         </div>
-        <button 
-          onClick={() => {
-            setEditingEvent(null);
-            setFormData({
-              title: '',
-              title_hi: '',
-              event_date: new Date().toISOString().split('T')[0],
-              type: 'Festival',
-              tithi: '',
-              paksha: 'Shukla',
-              katha_id: null
-            });
-            setShowModal(true);
-          }}
-          className="bg-amber-500 hover:bg-amber-600 text-white font-black px-6 py-4 rounded-2xl flex items-center gap-2 shadow-lg shadow-amber-500/30 transition-all active:scale-95"
-        >
-          <Plus size={20} />
-          Add Event
-        </button>
+        <div className="flex items-center gap-3">
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleBulkUpload} 
+            accept=".xlsx, .xls, .csv" 
+            className="hidden" 
+          />
+          <button
+            onClick={downloadTemplate}
+            className="bg-slate-800 hover:bg-slate-700 text-white font-black px-6 py-4 rounded-2xl flex items-center gap-2 shadow-lg transition-all active:scale-95"
+          >
+            Download Template
+          </button>
+
+          <button
+            onClick={() => fileInputRef.current.click()}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-6 py-4 rounded-2xl flex items-center gap-2 shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
+          >
+            <Upload size={20} />
+            Bulk Import
+          </button>
+
+          <button 
+            onClick={() => {
+              setEditingEvent(null);
+              setFormData({
+                title: '',
+                title_hi: '',
+                event_date: new Date().toISOString().split('T')[0],
+                type: 'Festival',
+                tithi: '',
+                paksha: 'Shukla',
+                katha_id: null
+              });
+              setShowModal(true);
+            }}
+            className="bg-amber-500 hover:bg-amber-600 text-white font-black px-6 py-4 rounded-2xl flex items-center gap-2 shadow-lg shadow-amber-500/30 transition-all active:scale-95"
+          >
+            <Plus size={20} />
+            Add Event
+          </button>
+        </div>
       </div>
 
       <div className="bg-[#1E293B] p-4 rounded-3xl border border-slate-800 flex items-center gap-4 shadow-xl">
@@ -156,8 +250,8 @@ export default function ManageCalendar() {
           <Loader2 className="animate-spin text-amber-500" size={48} />
         </div>
       ) : (
-        <div className="bg-[#1E293B] rounded-3xl border border-slate-800 overflow-hidden shadow-xl">
-          <table className="w-full text-left">
+        <div className="bg-[#1E293B] rounded-3xl border border-slate-800 overflow-x-auto shadow-xl custom-scrollbar">
+          <table className="w-full text-left min-w-[800px]">
             <thead>
               <tr className="bg-slate-800/50 text-slate-400 text-xs font-black uppercase tracking-widest border-b border-slate-800">
                 <th className="px-6 py-5">Date</th>
@@ -246,7 +340,7 @@ export default function ManageCalendar() {
               </button>
             </div>
             
-            <form onSubmit={handleSave} className="p-8 space-y-6">
+            <form onSubmit={handleSave} className="p-8 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-black text-slate-400 uppercase tracking-wider">Event Title</label>

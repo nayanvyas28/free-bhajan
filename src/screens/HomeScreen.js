@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react'; // Stable version
 import { 
   View, 
   FlatList, 
@@ -66,12 +66,104 @@ const DIVINE_QUOTES = [
   }
 ];
 
+const HomeHeader = React.memo(({ 
+  theme, t, language, query, setQuery, loadVideos, 
+  activeCategory, activeSubType, categories, 
+  handleCategoryPress, handleSubTypePress, dailyQuote, DIVINE_QUOTES 
+}) => {
+  const today = new Date().getDate();
+  const quoteData = dailyQuote || DIVINE_QUOTES[today % DIVINE_QUOTES.length];
+  const displayQuote = {
+    text: language === 'hi' ? quoteData.text_hi : quoteData.text_en,
+    author: language === 'hi' ? quoteData.author_hi : quoteData.author_en
+  };
+
+  return (
+    <View>
+      <Header />
+      
+      <View style={styles.searchWrapper}>
+        <Search size={22} color={theme.primary} style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          value={query}
+          onChangeText={setQuery}
+          onSubmitEditing={() => loadVideos(query, activeCategory, activeSubType)}
+          placeholder={t('searchPlaceholder') || "Search for divine melodies..."}
+          placeholderTextColor={theme.subtext}
+        />
+        {query.length > 0 ? (
+          <TouchableOpacity onPress={() => { setQuery(''); loadVideos('', activeCategory, activeSubType); }}>
+            <X size={22} color={theme.subtext} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={() => Alert.alert("Voice Search", "Voice search is coming soon! 🙏")}>
+            <Mic size={22} color={theme.subtext} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {!query && (
+        <View style={styles.quoteCard}>
+          <LinearGradient
+            colors={['rgba(255,193,7,0.1)', 'rgba(255,193,7,0.02)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.quoteGradient}
+          />
+          <View style={styles.quoteIconBox}>
+            <Quote size={18} color="#FFC107" fill="#FFC107" fillOpacity={0.2} />
+          </View>
+          <View style={styles.quoteContent}>
+            <Text style={styles.quoteText} numberOfLines={3}>"{displayQuote.text}"</Text>
+            <Text style={styles.quoteAuthor}>— {displayQuote.author}</Text>
+          </View>
+        </View>
+      )}
+
+      <View style={styles.filtersWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {categories.map((cat) => (
+            <TouchableOpacity
+              key={typeof cat === 'string' ? cat : cat.id || cat.name}
+              onPress={() => handleCategoryPress(cat)}
+              style={[
+                styles.categoryChip,
+                { backgroundColor: theme.card, borderColor: 'rgba(255,255,255,0.05)' },
+                activeCategory === (typeof cat === 'string' ? cat : cat.name) && { backgroundColor: theme.primary, borderColor: theme.primary }
+              ]}
+            >
+              <Text style={[styles.categoryText, { color: theme.subtext }, activeCategory === (typeof cat === 'string' ? cat : cat.name) && { color: '#000' }]}>
+                {language === 'hi' && cat.name_hi ? cat.name_hi : t(typeof cat === 'string' ? cat : cat.name)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterRow, { marginTop: 15 }]}>
+          {["All", "Bhajan", "Mantra", "Katha"].map((type) => (
+            <TouchableOpacity
+              key={type}
+              onPress={() => handleSubTypePress(type)}
+              style={[
+                styles.subTypeChip,
+                { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' },
+                activeSubType === type && { backgroundColor: 'rgba(255,193,7,0.1)', borderColor: theme.primary }
+              ]}
+            >
+              <Text style={[styles.subTypeText, { color: theme.subtext }, activeSubType === type && { color: theme.primary }]}>{t(type)}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    </View>
+  );
+});
+
 export default function HomeScreen({ navigation, route }) {
   const { theme, isDarkMode } = useTheme();
   const { t, language } = useLanguage();
   const { toggleSidebar } = useSidebar();
-  
-  const SUB_TYPES = ["All", "Bhajan", "Mantra", "Katha"];
   
   const [videos, setVideos] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
@@ -83,7 +175,6 @@ export default function HomeScreen({ navigation, route }) {
   const [favIds, setFavIds] = useState([]);
   const [dailyQuote, setDailyQuote] = useState(null);
   const { playVideo } = usePlayer();
-  const { toggleLanguage } = useLanguage();
 
   const fetchDailyQuote = async () => {
     const quote = await getDailyQuote();
@@ -99,52 +190,64 @@ export default function HomeScreen({ navigation, route }) {
         setCategories(DEFAULT_CATEGORIES);
       }
     } catch (e) {
-      setCategories(DEFAULT_CATEGORIES);
+      console.log('Error fetching deities:', e);
     }
   };
 
-  const loadVideos = async (searchQuery = '', category = "All", subType = "All") => {
-    if (loading) return;
+  const loadVideos = async (searchQuery = '', cat = 'All', subType = 'All') => {
     setLoading(true);
-    let data = [];
-    
     try {
+      let data = [];
       if (searchQuery) {
         data = await searchBhajans(searchQuery);
-        data = data.filter(v => v.type === 'youtube' || !v.type);
-      } else if (subType === "Katha") {
-        data = await getKathas();
+      } else if (subType === 'Katha') {
+        // Fetch from dedicated kathas table + bhajans tagged as Katha
+        const [bhajanKathas, dedicatedKathas] = await Promise.all([
+          getCuratedBhajans(cat === 'All' ? null : cat, null, 'Katha'),
+          getKathas()
+        ]);
+        data = [...bhajanKathas, ...dedicatedKathas];
+      } else if (cat !== 'All') {
+        data = await getCuratedBhajans(cat, null, subType === 'All' ? null : subType);
+      } else if (subType !== 'All') {
+        data = await getCuratedBhajans(null, null, subType);
       } else {
-        const categoryParam = category === "All" ? null : category;
-        const subTypeParam = subType === "All" ? null : subType;
-        data = await getCuratedBhajans(categoryParam, null, subTypeParam);
+        data = await getCuratedBhajans(null, null, null);
       }
-    } catch (err) {
-      console.log("Load error in HomeScreen:", err);
+
+      // Filter out Aartis, Audio-only files, and Kathas (unless explicitly selected)
+      const filteredData = (data || []).filter(item => {
+        const isAarti = item.subType === 'Aarti' || item.title?.toLowerCase().includes('aarti') || item.title?.includes('आरती');
+        const isAudio = item.type === 'audio';
+        const isKatha = item.subType === 'Katha' || item.title?.toLowerCase().includes('katha') || item.title?.includes('कथा');
+        
+        // Always hide Aartis and Audio on Home
+        if (isAarti || isAudio) return false;
+        
+        // Hide Kathas unless explicitly selected OR searching
+        if (isKatha && subType !== 'Katha' && !searchQuery) return false;
+        
+        return true;
+      });
+      setVideos(filteredData);
+    } catch (e) {
+      console.log('Error loading videos:', e);
+    } finally {
+      setLoading(false);
     }
-    
-    // Filter out audio files and Aarti sub-type
-    const videoOnlyData = (data || []).filter(item => 
-      item.type !== 'audio' && item.subType !== 'Aarti'
-    );
-    setVideos(videoOnlyData);
-    setLoading(false);
   };
 
   useEffect(() => {
     fetchDeities();
     fetchDailyQuote();
-    loadVideos('', activeCategory, activeSubType);
-    loadFavorites();
+    loadVideos();
   }, []);
 
   useEffect(() => {
     if (route.params?.category) {
-      const catName = typeof route.params.category === 'string' ? route.params.category : route.params.category.name;
-      setActiveCategory(catName);
+      setActiveCategory(route.params.category);
       setActiveSubType("All");
-      setQuery('');
-      loadVideos('', catName, "All");
+      loadVideos('', route.params.category, "All");
     } else if (route.params?.searchQuery) {
       setQuery(route.params.searchQuery);
       setActiveCategory("All");
@@ -153,23 +256,33 @@ export default function HomeScreen({ navigation, route }) {
     }
   }, [route.params?.category, route.params?.searchQuery]);
 
+  // Live Search & Category Effect (Debounced for Search)
+  useEffect(() => {
+    if (query.trim().length > 0) {
+      const timer = setTimeout(() => {
+        loadVideos(query, activeCategory, activeSubType);
+      }, 600);
+      return () => clearTimeout(timer);
+    } else {
+      // Reload based on category/subtype when search is empty
+      loadVideos('', activeCategory, activeSubType);
+    }
+  }, [query, activeCategory, activeSubType]);
+
   const clearSearch = () => {
     setQuery('');
-    loadVideos('', activeCategory, activeSubType);
   };
 
-  const handleCategoryPress = (cat) => {
+  const handleCategoryPress = useCallback((cat) => {
     const catName = typeof cat === 'string' ? cat : cat.name;
     setActiveCategory(catName);
-    setQuery('');
-    loadVideos('', catName, activeSubType);
-  };
+    setQuery(''); // This will trigger the clearSearch logic in useEffect
+  }, [activeSubType]);
 
-  const handleSubTypePress = (subType) => {
+  const handleSubTypePress = useCallback((subType) => {
     setActiveSubType(subType);
-    setQuery('');
-    loadVideos('', activeCategory, subType);
-  };
+    setQuery(''); // This will trigger the clearSearch logic in useEffect
+  }, [activeCategory]);
 
   const loadFavorites = async () => {
     const favs = await getFavorites();
@@ -220,7 +333,7 @@ export default function HomeScreen({ navigation, route }) {
       onFavorite={() => toggleFavorite(item)}
       onPress={() => {
         if (item.is_katha) {
-          navigation.navigate('Katha', { kathaId: item.id, title: item.title });
+          navigation.navigate('Katha', { kathaId: item.db_id || item.id, title: item.title });
         } else {
           console.log("Video clicked:", item.title || item.snippet?.title);
           playVideo(item, videos);
@@ -228,125 +341,24 @@ export default function HomeScreen({ navigation, route }) {
       }}
     />
   );
-  const renderHeader = () => {
-    const today = new Date().getDate();
-    const quoteData = dailyQuote || DIVINE_QUOTES[today % DIVINE_QUOTES.length];
-    const displayQuote = {
-      text: language === 'hi' ? quoteData.text_hi : quoteData.text_en,
-      author: language === 'hi' ? quoteData.author_hi : quoteData.author_en
-    };
-
-    return (
-      <View>
-        <View style={styles.headerArea}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <TouchableOpacity onPress={toggleSidebar} activeOpacity={0.7}>
-              <Text style={[styles.headerTitle, { color: theme.text }]}>
-                {t('namaste')}
-              </Text>
-              <Text style={[styles.headerSub, { color: theme.subtext }]}>
-                {t('spiritualLibrary')}
-              </Text>
-            </TouchableOpacity>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <TouchableOpacity 
-                onPress={toggleLanguage}
-                style={styles.refreshBtn}
-              >
-                <Languages size={20} color={theme.primary} />
-                <Text style={{ color: theme.primary, fontSize: 10, fontFamily: 'Outfit-Bold', marginLeft: 4 }}>
-                  {language.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={() => navigation.navigate('Profile')}
-                style={styles.refreshBtn}
-              >
-                <User size={22} color={theme.primary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.searchWrapper}>
-          <Search size={22} color={theme.primary} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            value={query}
-            onChangeText={setQuery}
-            onSubmitEditing={() => loadVideos(query, activeCategory, activeSubType)}
-            placeholder={t('searchPlaceholder') || "Search for divine melodies..."}
-            placeholderTextColor={theme.subtext}
-          />
-          {query.length > 0 ? (
-            <TouchableOpacity onPress={() => { setQuery(''); loadVideos('', activeCategory, activeSubType); }}>
-              <X size={22} color={theme.subtext} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity onPress={() => Alert.alert("Voice Search", "Voice search is coming soon! 🙏")}>
-              <Mic size={22} color={theme.subtext} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {!query && (
-          <View style={styles.quoteCard}>
-            <LinearGradient
-              colors={['rgba(255,193,7,0.1)', 'rgba(255,193,7,0.02)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.quoteGradient}
-            />
-            <View style={styles.quoteIconBox}>
-              <Quote size={18} color="#FFC107" fill="#FFC107" fillOpacity={0.2} />
-            </View>
-            <View style={styles.quoteContent}>
-              <Text style={styles.quoteText} numberOfLines={3}>"{displayQuote.text}"</Text>
-              <Text style={styles.quoteAuthor}>— {displayQuote.author}</Text>
-            </View>
-          </View>
-        )}
-
-        <View style={styles.filtersWrapper}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-            {categories.map((cat) => (
-              <TouchableOpacity
-                key={typeof cat === 'string' ? cat : cat.id || cat.name}
-                onPress={() => handleCategoryPress(cat)}
-                style={[
-                  styles.categoryChip,
-                  { backgroundColor: theme.card, borderColor: 'rgba(255,255,255,0.05)' },
-                  activeCategory === (typeof cat === 'string' ? cat : cat.name) && { backgroundColor: theme.primary, borderColor: theme.primary }
-                ]}
-              >
-                <Text style={[styles.categoryText, { color: theme.subtext }, activeCategory === (typeof cat === 'string' ? cat : cat.name) && { color: '#000' }]}>
-                  {language === 'hi' && cat.name_hi ? cat.name_hi : t(typeof cat === 'string' ? cat : cat.name)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterRow, { marginTop: 15 }]}>
-            {SUB_TYPES.map((type) => (
-              <TouchableOpacity
-                key={type}
-                onPress={() => handleSubTypePress(type)}
-                style={[
-                  styles.subTypeChip,
-                  { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' },
-                  activeSubType === type && { backgroundColor: 'rgba(255,193,7,0.1)', borderColor: theme.primary }
-                ]}
-              >
-                <Text style={[styles.subTypeText, { color: theme.subtext }, activeSubType === type && { color: theme.primary }]}>{t(type)}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      </View>
-    );
-  };
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <HomeHeader 
+        theme={theme}
+        t={t}
+        language={language}
+        query={query}
+        setQuery={setQuery}
+        loadVideos={loadVideos}
+        activeCategory={activeCategory}
+        activeSubType={activeSubType}
+        categories={categories}
+        handleCategoryPress={handleCategoryPress}
+        handleSubTypePress={handleSubTypePress}
+        dailyQuote={dailyQuote}
+        DIVINE_QUOTES={DIVINE_QUOTES}
+      />
+
       {loading && !refreshing ? (
         <View style={{ padding: 20 }}>
           {[1, 2, 3].map((i) => (
@@ -367,7 +379,7 @@ export default function HomeScreen({ navigation, route }) {
           data={videos}
           keyExtractor={(item, index) => (item.id?.videoId || item.id || index.toString())}
           renderItem={renderItem}
-          ListHeaderComponent={renderHeader}
+          ListHeaderComponent={null}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.primary]} />

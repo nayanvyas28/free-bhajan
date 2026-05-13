@@ -56,13 +56,18 @@ export default function LoginScreen({ navigation }) {
       const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
       const existingUser = await checkUserExists(formattedPhone);
       
+      console.log('[LOGIN] Data returned from checkUserExists:', existingUser);
+
       if (existingUser) {
+        console.log('[LOGIN] Existing User Found:', existingUser);
         setIsExistingUser(true);
-        setName(existingUser.full_name);
+        setName(existingUser.full_name || '');
         await startWhatsAppLogin(formattedPhone);
         setTimer(60);
         setStep(2);
+        setShowNameField(false);
       } else {
+        console.log('[LOGIN] No existing user found for:', formattedPhone);
         setIsExistingUser(false);
         setShowNameField(true);
       }

@@ -20,7 +20,6 @@ console.log("App: JS Engine started");
 import { SidebarProvider } from './src/context/SidebarContext';
 import { AuthProvider } from './src/context/AuthContext';
 import Sidebar from './src/components/Sidebar';
-import SidebarHandle from './src/components/SidebarHandle';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -52,7 +51,6 @@ export default function App() {
                     <StatusBar style="auto" />
                     <AppNavigator />
                     <Sidebar />
-                    <SidebarHandle />
                     <GlobalPlayer />
                   </NavigationContainer>
                 </SafeAreaProvider>

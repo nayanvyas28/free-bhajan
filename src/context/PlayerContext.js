@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useCallback, useRef } from 'react';
-import { searchBhajans, getCuratedBhajans } from '../services/youtubeApi';
+import { searchBhajans, getCuratedBhajans, getSolutions, getKathas } from '../services/youtubeApi';
 
 const PlayerContext = createContext();
 
@@ -39,22 +39,39 @@ export const PlayerProvider = ({ children }) => {
     setCurrentIndex(initialIndex === -1 ? 0 : initialIndex);
     indexRef.current = initialIndex === -1 ? 0 : initialIndex;
 
-    // Then handle suggestions in the background if needed
-    if (finalQueue.length <= 5) {
+    // Then handle suggestions in the background ONLY if no list was provided
+    if (videoList.length === 0 && finalQueue.length <= 5) {
       try {
-        const category = normalizedVideo.snippet?.channelTitle !== 'Bhajan' ? normalizedVideo.snippet?.channelTitle : null;
-        const suggestions = await getCuratedBhajans(category, normalizedVideo.type || 'youtube');
+        let suggestions = [];
+        if (normalizedVideo.is_solution) {
+          // Fetch from dedicated solutions table
+          const dedicated = await getSolutions();
+          // Fetch from bhajans table where category is 'Solution' or 'Upay'
+          const bhajanSolutions = await getCuratedBhajans('Solution');
+          const bhajanUpays = await getCuratedBhajans('Upay');
+          
+          suggestions = [...dedicated, ...bhajanSolutions, ...bhajanUpays];
+        } else if (normalizedVideo.is_katha) {
+          const bhajanKathas = await getCuratedBhajans(null, null, 'Katha');
+          const dedicatedKathas = await getKathas();
+          suggestions = [...bhajanKathas, ...dedicatedKathas];
+        } else {
+          const category = normalizedVideo.snippet?.channelTitle !== 'Bhajan' ? normalizedVideo.snippet?.channelTitle : null;
+          // PASS NULL FOR TYPE to allow both YouTube and Direct Video suggestions
+          const rawSuggestions = await getCuratedBhajans(category, null);
+          // EXPLICITLY filter out solutions and kathas from the normal bhajan list
+          suggestions = rawSuggestions.filter(s => !s.is_solution && !s.is_katha);
+        }
         
         if (suggestions && suggestions.length > 0) {
           const filteredSuggestions = suggestions
             .filter(b => (b.id?.videoId || b.id) !== videoId)
-            .sort(() => 0.5 - Math.random());
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 15);
             
           const updatedQueue = [normalizedVideo, ...filteredSuggestions];
           setQueue(updatedQueue);
           queueRef.current = updatedQueue;
-          setCurrentIndex(0);
-          indexRef.current = 0;
         }
       } catch (err) {
         console.log("Suggestion error:", err);
