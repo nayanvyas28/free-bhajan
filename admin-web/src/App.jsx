@@ -29,6 +29,8 @@ import ManageQuotes from './components/ManageQuotes';
 import ManageAartis from './components/ManageAartis';
 import ManageKathas from './components/ManageKathas';
 import ManageCalendar from './components/ManageCalendar';
+import ManageBanners from './components/ManageBanners';
+import { Layout } from 'lucide-react';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -87,6 +89,7 @@ function App() {
             <SidebarLink to="/aartis" icon={<Flame size={22} />} label="Manage Aarti" />
             <SidebarLink to="/quotes" icon={<Quote size={22} />} label="Daily Quotes" />
             <SidebarLink to="/import" icon={<FileSpreadsheet size={22} />} label="Bulk Import" />
+            <SidebarLink to="/banners" icon={<Layout size={22} />} label="App Banners" />
             <SidebarLink to="/list" icon={<ListMusic size={22} />} label="Manage Library" />
           </nav>
 
@@ -129,6 +132,7 @@ function App() {
               <Route path="/aartis" element={<ManageAartis />} />
               <Route path="/quotes" element={<ManageQuotes />} />
               <Route path="/import" element={<ExcelImport />} />
+              <Route path="/banners" element={<ManageBanners />} />
               <Route path="/list" element={<BhajanList />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

@@ -23,7 +23,7 @@
       "edgeToEdgeEnabled": true,
       "package": "mantra.puja.bhajan",
       "usesCleartextTraffic": true,
-      "permissions": ["INTERNET"]
+      "permissions": ["INTERNET", "FOREGROUND_SERVICE", "FOREGROUND_SERVICE_MEDIA_PLAYBACK", "WAKE_LOCK"]
     },
     "web": {
       "favicon": "./assets/mantrapuja_logo.png"

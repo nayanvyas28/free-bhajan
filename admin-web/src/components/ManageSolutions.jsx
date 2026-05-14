@@ -124,13 +124,13 @@ export default function ManageSolutions() {
           .update(finalData)
           .eq('id', editingId);
         if (error) throw error;
-        alert('Updated successfully!');
+        alert('✨ Upaye updated successfully!');
       } else {
         const { error } = await supabase
           .from('solutions')
           .insert([finalData]);
         if (error) throw error;
-        alert('Added successfully!');
+        alert('🎊 New Upaye added successfully!');
       }
       
       setFormData({ title: '', description: '', category: 'Health', image_url: '', url: '', type: 'video', duration: 0, is_visible: true });

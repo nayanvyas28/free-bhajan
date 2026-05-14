@@ -18,55 +18,60 @@ import KathaScreen from '../screens/KathaScreen';
 import { AuthProvider } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useBanners } from '../context/BannerContext';
+import AdBanner from '../components/AdBanner';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabNavigator() {
-  const { theme } = useTheme();
-  const { language, t } = useLanguage();
+    const { theme, isDarkMode } = useTheme();
+    const { language, t } = useLanguage();
 
-  return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarIcon: ({ color, size, focused }) => {
-          let icon;
-          if (route.name === 'HomeTab') icon = <Home size={size} color={color} />;
-          if (route.name === 'Explore') icon = <LayoutGrid size={size} color={color} />;
-          if (route.name === 'Music') icon = <Music size={size} color={color} />;
-          if (route.name === 'Solution') icon = <Lightbulb size={size} color={color} />;
-          if (route.name === 'Aarti') icon = <Flame size={size} color={color} />;
-          
-          return (
-            <View style={focused ? styles.iconContainerActive : styles.iconContainer}>
-              {icon}
-            </View>
-          );
-        },
-        tabBarActiveTintColor: theme.primary,
-        tabBarInactiveTintColor: theme.subtext,
-        tabBarBackground: () => (
-          <BlurView 
-            intensity={Platform.OS === 'ios' ? 80 : 100} 
-            tint="dark" 
-            style={StyleSheet.absoluteFill} 
-          />
-        ),
-        tabBarStyle: {
-          position: 'absolute',
-          bottom: 25,
-          left: 20,
-          right: 20,
-          height: 70,
-          backgroundColor: 'rgba(18, 18, 18, 0.9)',
-          borderRadius: 30,
-          borderWidth: 1,
-          borderColor: 'rgba(255, 255, 255, 0.1)',
-          paddingBottom: 10,
-          paddingTop: 10,
-          elevation: 5,
-        },
+    return (
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarIcon: ({ color, size, focused }) => {
+            let icon;
+            if (route.name === 'HomeTab') icon = <Home size={size} color={color} />;
+            if (route.name === 'Explore') icon = <LayoutGrid size={size} color={color} />;
+            if (route.name === 'Music') icon = <Music size={size} color={color} />;
+            if (route.name === 'Solution') icon = <Lightbulb size={size} color={color} />;
+            if (route.name === 'Aarti') icon = <Flame size={size} color={color} />;
+            
+            return (
+              <View style={focused ? [styles.iconContainerActive, { shadowColor: theme.primary }] : styles.iconContainer}>
+                {icon}
+              </View>
+            );
+          },
+          tabBarActiveTintColor: theme.primary,
+          tabBarInactiveTintColor: theme.subtext,
+          tabBarBackground: () => (
+            <BlurView 
+              intensity={Platform.OS === 'ios' ? 80 : 100} 
+              tint={isDarkMode ? "dark" : "light"} 
+              style={StyleSheet.absoluteFill} 
+            />
+          ),
+          tabBarStyle: {
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: Platform.OS === 'ios' ? 85 : 65,
+            backgroundColor: isDarkMode ? 'rgba(18, 18, 18, 0.96)' : 'rgba(255, 255, 255, 0.9)',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            borderWidth: 1,
+            borderBottomWidth: 0,
+            borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+            paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+            paddingTop: 10,
+            elevation: 20,
+          },
         tabBarLabelStyle: {
           fontFamily: 'Outfit-Bold',
           fontSize: 10,

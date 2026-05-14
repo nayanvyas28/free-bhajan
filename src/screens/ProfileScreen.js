@@ -12,11 +12,13 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useCustomAlert } from '../context/AlertContext';
+import { useSidebar } from '../context/SidebarContext';
+import ScreenWrapper from '../components/ScreenWrapper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, LogOut, Save, ChevronLeft, Info, ChevronRight, Palette, Sun, Moon, Monitor, Heart } from 'lucide-react-native';
+import { User, LogOut, Save, ChevronLeft, Info, ChevronRight, Palette, Sun, Moon, Monitor, Heart, Languages } from 'lucide-react-native';
 
 export default function ProfileScreen({ navigation }) {
-  const { theme, themeMode, setThemeMode } = useTheme();
+  const { theme, themeMode, setThemeMode, isDarkMode } = useTheme();
   const { profile, signOut, updateProfile } = useAuth();
   const { t } = useLanguage();
   const { showAlert } = useCustomAlert();
@@ -72,126 +74,159 @@ export default function ProfileScreen({ navigation }) {
     });
   };
 
+  const { language, setLanguage } = useLanguage();
+
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={{ paddingBottom: 150 }}>
-      <LinearGradient
-        colors={[theme.primary, 'rgba(0,0,0,0)']}
-        style={styles.headerBackground}
-      />
-      
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={28} color="#FFF" />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: '#FFF' }]}>{t('profile')}</Text>
-        <View style={{ width: 28 }} />
-      </View>
-
-      <View style={styles.profileSection}>
-        <View style={[styles.avatarLarge, { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', borderWidth: 2 }]}>
-          <Text style={styles.avatarText}>
-            {profile?.full_name?.charAt(0).toUpperCase() || 'U'}
-          </Text>
-        </View>
-        <Text style={[styles.phoneText, { color: 'rgba(255,255,255,0.6)' }]}>{profile?.phone_number}</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={[styles.label, { color: theme.subtext }]}>{t('fullName')}</Text>
-        <View style={[styles.inputWrapper, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.05)' }]}>
-          <User size={20} color={theme.primary} style={styles.icon} />
-          <TextInput
-            style={[styles.input, { color: theme.text }]}
-            value={name}
-            onChangeText={setName}
-            placeholder={t('yourName')}
-            placeholderTextColor={theme.subtext}
-          />
+    <ScreenWrapper hasTabBar={false}>
+      <ScrollView style={[styles.container]} contentContainerStyle={{ paddingBottom: 150 }}>
+        <LinearGradient
+          colors={[theme.primary, 'rgba(0,0,0,0)']}
+          style={styles.headerBackground}
+        />
+        
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+            <ChevronLeft size={28} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>{t('profile')}</Text>
+          <View style={{ width: 28 }} />
         </View>
 
-        <TouchableOpacity 
-          style={[styles.saveBtn, { backgroundColor: theme.primary }]}
-          onPress={handleUpdateName}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#000" />
-          ) : (
-            <>
-              <Save size={20} color="#000" />
-              <Text style={[styles.saveBtnText, { color: '#000' }]}>{t('saveChanges')}</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.menuContainer}>
-        <View style={styles.sectionHeader}>
-          <Palette size={20} color={theme.primary} />
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('theme')}</Text>
-        </View>
-
-        <View style={styles.themeSelector}>
-          {[
-            { id: 'system', icon: Monitor, label: t('themeSystem') },
-            { id: 'light', icon: Sun, label: t('themeLight') },
-            { id: 'dark', icon: Moon, label: t('themeDark') },
-          ].map((mode) => (
-            <TouchableOpacity
-              key={mode.id}
-              onPress={() => setThemeMode(mode.id)}
-              style={[
-                styles.themeBtn,
-                { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' },
-                themeMode === mode.id && { backgroundColor: 'rgba(255,193,7,0.1)', borderColor: theme.primary }
-              ]}
-            >
-              <mode.icon size={22} color={themeMode === mode.id ? theme.primary : theme.subtext} />
-              <Text style={[
-                styles.themeBtnText, 
-                { color: themeMode === mode.id ? theme.primary : theme.subtext }
-              ]}>{mode.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.menuItem, { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 12 }]}
-          onPress={() => navigation.navigate('Favorites')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuItemLeft}>
-            <View style={[styles.menuIconBox, { backgroundColor: 'rgba(255,59,48,0.1)' }]}>
-              <Heart size={20} color="#FF3B30" fill="#FF3B30" />
-            </View>
-            <Text style={[styles.menuItemText, { color: theme.text }]}>{t('favorites')}</Text>
+        <View style={styles.profileSection}>
+          <View style={[styles.avatarLarge, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(255,143,0,0.1)', borderColor: theme.border, borderWidth: 2, shadowColor: theme.shadow }]}>
+            <Text style={[styles.avatarText, { color: theme.primary }]}>
+              {profile?.full_name?.charAt(0).toUpperCase() || 'U'}
+            </Text>
           </View>
-          <ChevronRight size={20} color={theme.subtext} />
-        </TouchableOpacity>
+          <Text style={[styles.phoneText, { color: theme.text }]}>{profile?.phone_number}</Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text style={[styles.label, { color: theme.subtext }]}>{t('fullName')}</Text>
+          <View style={[styles.inputWrapper, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', borderColor: theme.border }]}>
+            <User size={20} color={theme.primary} style={styles.icon} />
+            <TextInput
+              style={[styles.input, { color: theme.text }]}
+              value={name}
+              onChangeText={setName}
+              placeholder={t('yourName')}
+              placeholderTextColor={theme.subtext}
+            />
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.saveBtn, { backgroundColor: theme.primary }]}
+            onPress={handleUpdateName}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={isDarkMode ? "#000" : "#FFF"} />
+            ) : (
+              <>
+                <Save size={20} color={isDarkMode ? "#000" : "#FFF"} />
+                <Text style={[styles.saveBtnText, { color: isDarkMode ? "#000" : "#FFF" }]}>{t('saveChanges')}</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.menuContainer}>
+          {/* THEME SECTION */}
+          <View style={styles.sectionHeader}>
+            <Palette size={20} color={theme.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('theme')}</Text>
+          </View>
+
+          <View style={styles.themeSelector}>
+            {[
+              { id: 'system', icon: Monitor, label: t('themeSystem') },
+              { id: 'light', icon: Sun, label: t('themeLight') },
+              { id: 'dark', icon: Moon, label: t('themeDark') },
+            ].map((mode) => (
+              <TouchableOpacity
+                key={mode.id}
+                onPress={() => setThemeMode(mode.id)}
+                style={[
+                  styles.themeBtn,
+                  { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' },
+                  themeMode === mode.id && { backgroundColor: 'rgba(255,193,7,0.1)', borderColor: theme.primary }
+                ]}
+              >
+                <mode.icon size={22} color={themeMode === mode.id ? theme.primary : theme.subtext} />
+                <Text style={[
+                  styles.themeBtnText, 
+                  { color: themeMode === mode.id ? theme.primary : theme.subtext }
+                ]}>{mode.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* LANGUAGE SECTION */}
+          <View style={styles.sectionHeader}>
+            <Languages size={20} color={theme.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('language') || 'Language'}</Text>
+          </View>
+
+          <View style={styles.themeSelector}>
+            {[
+              { id: 'hi', label: 'हिंदी (Hindi)' },
+              { id: 'en', label: 'English' },
+            ].map((lang) => (
+              <TouchableOpacity
+                key={lang.id}
+                onPress={() => setLanguage(lang.id)}
+                style={[
+                  styles.themeBtn,
+                  { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' },
+                  language === lang.id && { backgroundColor: 'rgba(255,193,7,0.1)', borderColor: theme.primary }
+                ]}
+              >
+                <Text style={[
+                  styles.themeBtnText, 
+                  { color: language === lang.id ? theme.primary : theme.subtext, fontSize: 16 }
+                ]}>{lang.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.menuItem, { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 12 }]}
+            onPress={() => navigation.navigate('Favorites')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuItemLeft}>
+              <View style={[styles.menuIconBox, { backgroundColor: 'rgba(255,59,48,0.1)' }]}>
+                <Heart size={20} color="#FF3B30" fill="#FF3B30" />
+              </View>
+              <Text style={[styles.menuItemText, { color: theme.text }]}>{t('favorites')}</Text>
+            </View>
+            <ChevronRight size={20} color={theme.subtext} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.menuItem, { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' }]}
+            onPress={() => navigation.navigate('About')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuItemLeft}>
+              <View style={[styles.menuIconBox, { backgroundColor: 'rgba(255,179,0,0.1)' }]}>
+                <Info size={20} color={theme.primary} />
+              </View>
+              <Text style={[styles.menuItemText, { color: theme.text }]}>{t('about')}</Text>
+            </View>
+            <ChevronRight size={20} color={theme.subtext} />
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity 
-          style={[styles.menuItem, { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' }]}
-          onPress={() => navigation.navigate('About')}
-          activeOpacity={0.7}
+          style={[styles.signOutBtn, { borderColor: 'rgba(255, 59, 48, 0.2)', backgroundColor: 'rgba(255, 59, 48, 0.05)' }]}
+          onPress={handleSignOut}
         >
-          <View style={styles.menuItemLeft}>
-            <View style={[styles.menuIconBox, { backgroundColor: 'rgba(255,179,0,0.1)' }]}>
-              <Info size={20} color={theme.primary} />
-            </View>
-            <Text style={[styles.menuItemText, { color: theme.text }]}>{t('about')}</Text>
-          </View>
-          <ChevronRight size={20} color={theme.subtext} />
+          <LogOut size={20} color="#FF3B30" />
+          <Text style={styles.signOutText}>{t('logout')}</Text>
         </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity 
-        style={[styles.signOutBtn, { borderColor: 'rgba(255, 59, 48, 0.2)', backgroundColor: 'rgba(255, 59, 48, 0.05)' }]}
-        onPress={handleSignOut}
-      >
-        <LogOut size={20} color="#FF3B30" />
-        <Text style={styles.signOutText}>{t('logout')}</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </ScreenWrapper>
   );
 }
 
@@ -228,20 +263,19 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   avatarLarge: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
+    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
   },
-  avatarText: { color: '#FFF', fontSize: 48, fontFamily: 'Outfit-Bold' },
-  phoneText: { fontSize: 16, fontFamily: 'Outfit-Bold', letterSpacing: 1 },
+  avatarText: { fontSize: 40, fontFamily: 'Outfit-Bold' },
+  phoneText: { fontSize: 18, fontFamily: 'Outfit-Bold', letterSpacing: 1.5, marginTop: 4 },
   card: { 
     marginHorizontal: 20, 
     padding: 24, 

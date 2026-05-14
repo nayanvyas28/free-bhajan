@@ -26,11 +26,108 @@ export default function GlobalPlayer() {
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showControls, setShowControls] = useState(true);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [activeLyricIndex, setActiveLyricIndex] = useState(-1);
   const expandAnim = useRef(new Animated.Value(0)).current;
   const prevUrlRef = useRef(null);
   const isPlayingRef = useRef(isPlaying);
   const ytPlayerRef = useRef(null);
   const videoViewRef = useRef(null);
+  const lyricsScrollRef = useRef(null);
+  const [lyricsContentHeight, setLyricsContentHeight] = useState(0);
+  const [lyricsViewHeight, setLyricsViewHeight] = useState(0);
+
+  // Smart Parser for Lyrics (Handles JSON or Human-friendly format)
+  const parsedLyrics = (() => {
+    try {
+      const rawLyrics = currentVideo?.lyrics;
+      if (!rawLyrics || typeof rawLyrics !== 'string') return null;
+
+      // 1. Handle JSON format (existing)
+      if (rawLyrics.trim().startsWith('[')) {
+        return JSON.parse(rawLyrics);
+      }
+
+      // 2. Handle Human-friendly format (00:00:03 \n Jay Ambe...)
+      const lines = rawLyrics.split('\n');
+      const synced = [];
+      let currentEntry = null;
+
+      const timeRegex = /(\d{1,2}):(\d{1,2}):(\d{1,2})|(\d{1,2}):(\d{1,2})/;
+
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        const timeMatch = trimmed.match(timeRegex);
+        if (timeMatch) {
+          // It's a timestamp
+          let seconds = 0;
+          if (timeMatch[1] !== undefined) {
+            // HH:MM:SS
+            seconds = parseInt(timeMatch[1]) * 3600 + parseInt(timeMatch[2]) * 60 + parseInt(timeMatch[3]);
+          } else {
+            // MM:SS
+            seconds = parseInt(timeMatch[4]) * 60 + parseInt(timeMatch[5]);
+          }
+          
+          currentEntry = { time: seconds, text: '' };
+          synced.push(currentEntry);
+        } else if (currentEntry) {
+          // It's text for the current timestamp - Filter out square brackets [...]
+          const cleanText = trimmed.replace(/\[.*?\]/g, '').trim();
+          if (cleanText) {
+            currentEntry.text = currentEntry.text ? `${currentEntry.text}\n${cleanText}` : cleanText;
+          }
+        }
+      });
+
+      return synced.length > 0 ? synced : null;
+    } catch (e) {
+      console.log("Lyrics Parse Error:", e);
+      return null;
+    }
+  })();
+
+  const lineLayouts = useRef({});
+
+  // Sync active lyric index
+  useEffect(() => {
+    if (parsedLyrics && isPlaying) {
+      const index = parsedLyrics.findLastIndex(l => position >= l.time);
+      if (index !== activeLyricIndex) {
+        setActiveLyricIndex(index);
+        
+        // Auto-scroll logic (Using Dynamic Layouts for Perfect Centering)
+        if (autoScroll && lyricsScrollRef.current && index !== -1 && lineLayouts.current[index]) {
+          const layout = lineLayouts.current[index];
+          const vHeight = lyricsViewHeight || (width - 150);
+          
+          // Scroll so the CENTER of the item is at the CENTER of the viewport
+          const scrollY = layout.y - (vHeight / 2) + (layout.height / 2);
+          
+          lyricsScrollRef.current.scrollTo({ y: Math.max(0, scrollY), animated: true });
+        }
+      }
+    }
+  }, [position, parsedLyrics, autoScroll, isPlaying, lyricsViewHeight]);
+
+  // Resume auto-scroll after manual interaction
+  const scrollTimeout = useRef(null);
+  const handleLyricsScrollStart = () => {
+    setAutoScroll(false);
+    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+    scrollTimeout.current = setTimeout(() => setAutoScroll(true), 3000);
+  };
+
+  // Auto-scroll effect for plain text
+  useEffect(() => {
+    if (!parsedLyrics && autoScroll && isPlaying && lyricsScrollRef.current && duration > 0 && lyricsContentHeight > lyricsViewHeight) {
+      const scrollableHeight = lyricsContentHeight - lyricsViewHeight;
+      const scrollY = (position / duration) * scrollableHeight;
+      lyricsScrollRef.current.scrollTo({ y: scrollY, animated: true });
+    }
+  }, [position, duration, autoScroll, isPlaying, lyricsContentHeight, lyricsViewHeight, parsedLyrics]);
 
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
@@ -77,16 +174,17 @@ export default function GlobalPlayer() {
     setPosition(0);
     setShowControls(true);
 
-    const urlWithBust = directUrl; // Removed cache buster to fix Range/Seeking issues
+    const urlWithBust = directUrl; 
     player.replace({
       uri: urlWithBust,
       metadata: {
-        title: currentVideo?.title || 'Divine Bhajan',
-        artist: currentVideo?.category || 'MantraPuja Bhajan',
-        duration: currentVideo?.duration || 0
+        title: currentVideo?.title || 'MantraPuja Bhajan',
+        artist: currentVideo?.category || 'Divine Collection',
+        artwork: currentVideo?.thumbnail || 'https://mpbucket.pages.dev/assets/logo.png', // Fallback logo
       }
     });
     
+    player.staysActiveInBackground = true;
     if (isPlayingRef.current) player.play();
   }, [directUrl, isYoutube, player]);
 
@@ -445,7 +543,7 @@ export default function GlobalPlayer() {
       bottom: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [85, 0] }),
       borderRadius: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] })
     }]}>
-      <LinearGradient colors={isDarkMode ? ['#0F172A', '#020617'] : ['#FFFFFF', '#F8FAFC']} style={StyleSheet.absoluteFill}>
+      <LinearGradient colors={isDarkMode ? ['#0F172A', '#020617'] : ['#FFFBF5', '#FFF0E0']} style={StyleSheet.absoluteFill}>
         
         <Animated.View style={{ flex: 1, opacity: expandAnim }}>
           <View style={styles.header}>
@@ -479,12 +577,18 @@ export default function GlobalPlayer() {
                   </View>
 
                   <View style={styles.slideItem}>
-                    <View style={[styles.lyricsSlideContainer, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: theme.border }]}>
+                    <View style={[styles.lyricsSlideContainer, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderColor: theme.border }]}>
                       <View style={styles.lyricsSlideHeader}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                           <BookOpen size={20} color={theme.primary} />
                           <Text style={[styles.lyricsSlideTitle, { color: theme.text }]}>{t('lyrics')}</Text>
                         </View>
+                        <TouchableOpacity 
+                          onPress={() => setAutoScroll(!autoScroll)}
+                          style={[styles.autoScrollToggle, { backgroundColor: autoScroll ? theme.primary + '20' : 'rgba(255,255,255,0.05)', borderColor: autoScroll ? theme.primary : 'transparent' }]}
+                        >
+                          <Text style={{ fontSize: 10, fontFamily: 'Outfit-Bold', color: autoScroll ? theme.primary : theme.subtext }}>AUTO</Text>
+                        </TouchableOpacity>
                         <View style={styles.fontSizeCtrls}>
                           <TouchableOpacity 
                             onPress={() => setLyricsFontSize(prev => Math.max(12, prev - 2))} 
@@ -501,10 +605,50 @@ export default function GlobalPlayer() {
                           </TouchableOpacity>
                         </View>
                       </View>
-                      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.lyricsSlideContent}>
-                        <Text style={[styles.lyricsSlideText, { color: theme.text, fontSize: lyricsFontSize }]}>
-                          {currentVideo?.description || currentVideo?.snippet?.description || `Lyrics not available for this ${category.toLowerCase() || 'song'}.`}
-                        </Text>
+                      <ScrollView 
+                        ref={lyricsScrollRef}
+                        showsVerticalScrollIndicator={false} 
+                        onLayout={(e) => setLyricsViewHeight(e.nativeEvent.layout.height)}
+                        contentContainerStyle={[styles.lyricsSlideContent, { paddingVertical: lyricsViewHeight / 2 - 50 }]}
+                        onContentSizeChange={(w, h) => setLyricsContentHeight(h)}
+                        onScrollBeginDrag={handleLyricsScrollStart}
+                      >
+                        {parsedLyrics ? (
+                          parsedLyrics.map((line, idx) => {
+                            const isActive = idx === activeLyricIndex;
+                            return (
+                              <View 
+                                key={idx} 
+                                onLayout={(e) => {
+                                  if (!lineLayouts.current) lineLayouts.current = {};
+                                  lineLayouts.current[idx] = e.nativeEvent.layout;
+                                }}
+                                style={[
+                                  styles.lyricLine, 
+                                  isActive && { backgroundColor: isDarkMode ? 'rgba(255,193,7,0.15)' : 'rgba(255,143,0,0.1)' }
+                                ]}
+                              >
+                                <Text style={[
+                                  styles.lyricsSlideText, 
+                                  { 
+                                    color: isActive ? theme.primary : (isDarkMode ? '#FFFFFF' : '#000000'), 
+                                    fontSize: isActive ? lyricsFontSize + 2 : lyricsFontSize, 
+                                    opacity: isActive ? 1 : 0.6,
+                                    textAlign: 'center',
+                                    lineHeight: lyricsFontSize * 1.5,
+                                    fontFamily: isActive ? 'Outfit-Bold' : 'Outfit-Medium'
+                                  }
+                                ]}>
+                                  {line.text}
+                                </Text>
+                              </View>
+                            );
+                          })
+                        ) : (
+                          <Text style={[styles.lyricsSlideText, { color: theme.text, fontSize: lyricsFontSize }]}>
+                            {currentVideo?.lyrics || currentVideo?.description || currentVideo?.snippet?.description || `Lyrics not available for this ${category.toLowerCase() || 'song'}.`}
+                          </Text>
+                        )}
                       </ScrollView>
                     </View>
                   </View>
@@ -697,10 +841,16 @@ export default function GlobalPlayer() {
                       </TouchableOpacity>
                     </View>
                   </View>
-                  <View style={[styles.lyricsContent, { backgroundColor: 'rgba(255,255,255,0.02)', borderColor: theme.border }]}>
-                    <Text style={[styles.lyricsText, { color: theme.text, fontSize: lyricsFontSize }]}>
-                      {currentVideo?.description || currentVideo?.snippet?.description}
-                    </Text>
+                  <View style={[styles.lyricsContent, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.03)', borderColor: theme.border }]}>
+                    <Text style={[styles.lyricsText, { color: isDarkMode ? theme.text : '#1A1A1A', fontSize: lyricsFontSize, opacity: 1 }]}>
+                    {(currentVideo?.lyrics || currentVideo?.description || currentVideo?.snippet?.description || '')
+                      .replace(/(\d{1,2}):(\d{1,2}):(\d{1,2})|(\d{1,2}):(\d{1,2})/g, '') // Remove timestamps
+                      .replace(/\[.*?\]/g, '') // Remove [Music] etc
+                      .split('\n')
+                      .filter(line => line.trim() !== '') // Remove empty lines
+                      .join('\n')
+                    }
+                  </Text>
                   </View>
                 </View>
               )}
@@ -709,10 +859,25 @@ export default function GlobalPlayer() {
         </Animated.View>
 
         {/* MINI PLAYER */}
-        <Animated.View style={[styles.miniBar, { opacity: expandAnim.interpolate({ inputRange: [0, 0.3], outputRange: [1, 0] }) }]} pointerEvents={isExpanded ? 'none' : 'auto'}>
+        <Animated.View style={[
+          styles.miniBar, 
+          { 
+            opacity: expandAnim.interpolate({ inputRange: [0, 0.3], outputRange: [1, 0] }),
+            backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF',
+            borderTopColor: theme.border,
+            borderTopWidth: isDarkMode ? 0 : 1,
+            elevation: 20,
+            shadowColor: theme.shadow,
+            shadowOpacity: 0.2,
+            shadowRadius: 10,
+          }
+        ]} pointerEvents={isExpanded ? 'none' : 'auto'}>
           <TouchableOpacity activeOpacity={1} onPress={toggleExpand} style={styles.miniContent}>
             {thumbnail ? <Image source={{ uri: thumbnail }} style={styles.miniArt} /> : <View style={[styles.miniArt, { backgroundColor: theme.primary, justifyContent: 'center', alignItems: 'center' }]}><Text>🎵</Text></View>}
-            <View style={{ flex: 1, marginLeft: 14 }}><Text style={[styles.miniTtl, { color: theme.text }]} numberOfLines={1}>{title}</Text><Text style={styles.miniSts}>{isBuffering ? t('connecting') : isPlaying ? t('playing') : t('paused')}</Text></View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={[styles.miniTtl, { color: theme.text }]} numberOfLines={1}>{title}</Text>
+              <Text style={[styles.miniSts, { color: theme.subtext }]}>{isBuffering ? t('connecting') : isPlaying ? t('playing') : t('paused')}</Text>
+            </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
               <TouchableOpacity onPress={() => isPlaying ? pauseVideo() : resumeVideo()}>
                 {isPlaying ? <Pause size={28} color={theme.primary} /> : <Play size={28} color={theme.primary} />}
@@ -746,17 +911,16 @@ const styles = StyleSheet.create({
   },
   lyricsSlideContainer: {
     width: width - 60,
-    height: width - 80,
+    height: width - 40,
     borderRadius: 32,
     borderWidth: 1,
-    padding: 24,
     overflow: 'hidden',
   },
   lyricsSlideHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 15,
+    padding: 15,
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.05)',
@@ -788,6 +952,24 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  autoScrollToggle: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginRight: 10,
+  },
+  lyricLine: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+    marginVertical: 4,
+  },
+  activeLyricLine: {
+    backgroundColor: 'rgba(255,193,7,0.08)',
   },
   pagination: {
     flexDirection: 'row',

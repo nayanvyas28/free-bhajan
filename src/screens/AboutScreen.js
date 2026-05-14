@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Linking } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
-import { ChevronLeft, Info, Globe, MessageCircle, Star, Music } from 'lucide-react-native';
+import { ChevronLeft, Info, Globe, MessageCircle, Star, Music, ShieldCheck, FileText, RefreshCcw } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -63,6 +63,25 @@ export default function AboutScreen({ navigation }) {
           <TouchableOpacity style={styles.linkRow} onPress={() => Linking.openURL('mailto:support@mantrapuja.com')}>
             <MessageCircle size={20} color={theme.subtext} />
             <Text style={[styles.linkText, { color: theme.text }]}>support@mantrapuja.com</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.contactCard, { backgroundColor: theme.card, borderColor: theme.border, marginTop: 20 }]}>
+          <Text style={[styles.cardTitle, { color: theme.primary }]}>Legal & Policies</Text>
+          
+          <TouchableOpacity style={styles.linkRow} onPress={() => Linking.openURL('https://mantrapuja.com/privacy-policy')}>
+            <ShieldCheck size={20} color={theme.subtext} />
+            <Text style={[styles.linkText, { color: theme.text }]}>Privacy Policy</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.linkRow} onPress={() => Linking.openURL('https://mantrapuja.com/terms-of-service')}>
+            <FileText size={20} color={theme.subtext} />
+            <Text style={[styles.linkText, { color: theme.text }]}>Terms of Service</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.linkRow} onPress={() => Linking.openURL('https://mantrapuja.com/refund-policy')}>
+            <RefreshCcw size={20} color={theme.subtext} />
+            <Text style={[styles.linkText, { color: theme.text }]}>Refund Policy</Text>
           </TouchableOpacity>
         </View>
       </View>

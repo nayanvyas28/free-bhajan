@@ -65,6 +65,7 @@ export const getCuratedBhajans = async (category = null, type = null, subType = 
         thumbnail: displayThumb,
         title: item.title,
         description: item.description,
+        lyrics: item.lyrics || item.content || item.description,
         duration: item.duration || 0,
         subType: item.sub_type || 'Bhajan',
         snippet: {
@@ -178,6 +179,21 @@ export const getKathas = async () => {
     });
   } catch (error) {
     console.error('Kathas Fetch Error:', error);
+    return [];
+  }
+};
+
+export const getBanners = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('banners')
+      .select('*')
+      .order('position', { ascending: true });
+    
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Banners Fetch Error:', error);
     return [];
   }
 };

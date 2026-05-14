@@ -22,18 +22,18 @@ export const themes = {
     header: ['#121212', '#000000'],
   },
   light: {
-    background: '#F8F9FA',
+    background: '#FFFBF5',
     surface: '#FFFFFF',
     card: '#FFFFFF',
-    text: '#121212',
-    subtext: '#666666',
-    primary: '#FFB300',
-    secondary: '#FF3D00',
-    border: '#EEEEEE',
-    shadow: 'rgba(0,0,0,0.05)',
-    accent: '#FFA000',
-    glass: 'rgba(255, 255, 255, 0.8)',
-    header: ['#FFFFFF', '#F8F9FA'],
+    text: '#2C3E50',
+    subtext: '#7F8C8D',
+    primary: '#FF8F00',
+    secondary: '#E67E22',
+    border: '#F3E5D8',
+    shadow: 'rgba(230, 126, 34, 0.1)',
+    accent: '#F39C12',
+    glass: 'rgba(255, 255, 255, 0.9)',
+    header: ['#FFFFFF', '#FFFBF5'],
   }
 };
 

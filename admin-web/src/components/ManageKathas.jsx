@@ -133,11 +133,13 @@ export default function ManageKathas() {
         .update(formData)
         .eq('id', editingKatha.id);
       if (error) alert('Error updating katha');
+      else alert('✨ Katha updated successfully!');
     } else {
       const { error } = await supabase
         .from('kathas')
         .insert([formData]);
       if (error) alert('Error adding katha');
+      else alert('🎊 New Katha added successfully!');
     }
 
     setShowModal(false);

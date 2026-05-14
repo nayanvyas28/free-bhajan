@@ -32,7 +32,7 @@ const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
 
   return (
     <TouchableOpacity 
-      style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]} 
+      style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border, shadowColor: theme.shadow }]} 
       onPress={onPress} 
       activeOpacity={0.8}
     >
@@ -94,12 +94,12 @@ const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
         </View>
         
         <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.actionBtn} onPress={onShare}>
-            <Share2 size={22} color={theme.subtext} />
+          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border }]} onPress={onShare}>
+            <Share2 size={20} color={theme.subtext} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={onFavorite}>
+          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border }]} onPress={onFavorite}>
             <Heart 
-              size={24} 
+              size={22} 
               color={isFav ? "#FF3B30" : theme.subtext} 
               fill={isFav ? "#FF3B30" : "transparent"} 
             />
@@ -117,18 +117,16 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
+    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   thumbnailContainer: {
     position: 'relative',
     height: 200,
     width: '100%',
     overflow: 'hidden',
-    backgroundColor: '#000',
   },
   thumbnail: {
     width: '100%',
@@ -162,7 +160,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.15)',
   },
   playCircle: {
     width: 60,
@@ -173,7 +171,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
-    backdropFilter: 'blur(10px)',
   },
   infoContainer: {
     paddingHorizontal: 18,
@@ -214,11 +211,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.02)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.04)',
   },
   audioBadge: {
     position: 'absolute',

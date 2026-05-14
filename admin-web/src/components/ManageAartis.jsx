@@ -72,8 +72,9 @@ export default function ManageAartis() {
       });
       setFormData({ ...formData, url: publicUrl, type: 'audio' });
       if (!formData.title) setFormData(prev => ({ ...prev, title: file.name.split('.')[0] }));
+      alert('✅ File uploaded to Cloudflare successfully!');
     } catch (error) {
-      alert('Upload failed: ' + error.message);
+      alert('❌ Upload failed: ' + error.message);
     } finally {
       setUploading(false);
     }
@@ -89,11 +90,13 @@ export default function ManageAartis() {
           .update(formData)
           .eq('id', editingAarti.id);
         if (error) throw error;
+        alert('✨ Aarti updated successfully!');
       } else {
         const { error } = await supabase
           .from('bhajans')
           .insert([formData]);
         if (error) throw error;
+        alert('🎊 New Aarti added successfully!');
       }
       setShowModal(false);
       setEditingAarti(null);
@@ -108,7 +111,7 @@ export default function ManageAartis() {
       });
       fetchAartis();
     } catch (error) {
-      alert('Error: ' + error.message);
+      alert('❌ Error: ' + error.message);
     } finally {
       setSaving(false);
     }

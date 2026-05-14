@@ -3,6 +3,7 @@ import { View, FlatList, StyleSheet, Text, TouchableOpacity, Image, ScrollView }
 import { getFavorites, removeFavorite } from '../storage/favorites';
 import VideoCard from '../components/VideoCard';
 import Header from '../components/Header';
+import ScreenWrapper from '../components/ScreenWrapper';
 import { usePlayer } from '../context/PlayerContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -116,99 +117,103 @@ export default function FavoritesScreen({ navigation }) {
 
   if (!isAuthenticated) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <Header title={t('favorites')} />
-        <View style={styles.authPrompt}>
-          <View style={[styles.lockCircle, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Lock size={40} color={theme.primary} />
+      <ScreenWrapper>
+        <View style={[styles.container]}>
+          <Header title={t('favorites')} />
+          <View style={styles.authPrompt}>
+            <View style={[styles.lockCircle, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <Lock size={40} color={theme.primary} />
+            </View>
+            <Text style={[styles.authTitle, { color: theme.text }]}>{t('loginRequired') || 'Login Required'}</Text>
+            <Text style={[styles.authSubtitle, { color: theme.subtext }]}>
+              {t('loginPrompt') || 'Sign in to sync your favorite divine melodies across all your devices.'}
+            </Text>
+            <TouchableOpacity 
+              style={[styles.loginBtn, { backgroundColor: theme.primary }]}
+              onPress={() => navigation.navigate('Login')}
+            >
+              <LogIn size={20} color="#FFF" />
+              <Text style={styles.loginText}>Sign In Now</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={[styles.authTitle, { color: theme.text }]}>{t('loginRequired') || 'Login Required'}</Text>
-          <Text style={[styles.authSubtitle, { color: theme.subtext }]}>
-            {t('loginPrompt') || 'Sign in to sync your favorite divine melodies across all your devices.'}
-          </Text>
-          <TouchableOpacity 
-            style={[styles.loginBtn, { backgroundColor: theme.primary }]}
-            onPress={() => navigation.navigate('Login')}
-          >
-            <LogIn size={20} color="#FFF" />
-            <Text style={styles.loginText}>Sign In Now</Text>
-          </TouchableOpacity>
         </View>
-      </View>
+      </ScreenWrapper>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Header />
+    <ScreenWrapper hasTabBar={false}>
+      <View style={[styles.container]}>
+        <Header />
 
-      <View style={styles.headerArea}>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>{t('favorites')}</Text>
-      </View>
+        <View style={styles.headerArea}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>{t('favorites')}</Text>
+        </View>
 
-      <View style={styles.tabScrollWrapper}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabContainer}>
-          {[
-            { id: 'video', label: t('bhajanVideo'), icon: Video },
-            { id: 'audio', label: t('bhajanAudio'), icon: Music },
-            { id: 'u_video', label: t('upayeVideo'), icon: Sparkles },
-            { id: 'u_audio', label: t('upayeAudio'), icon: Music }
-          ].map(tab => (
-            <TouchableOpacity 
-              key={tab.id}
-              style={[
-                styles.tab, 
-                { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' },
-                activeTab === tab.id && { backgroundColor: 'rgba(255,193,7,0.1)', borderColor: theme.primary }
-              ]}
-              onPress={() => setActiveTab(tab.id)}
-            >
-              <tab.icon 
-                size={18} 
-                color={activeTab === tab.id ? theme.primary : theme.subtext} 
-              />
-              <Text style={[
-                styles.tabText, 
-                { color: activeTab === tab.id ? theme.primary : theme.subtext }
-              ]}>
-                {tab.label}
+        <View style={styles.tabScrollWrapper}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabContainer}>
+            {[
+              { id: 'video', label: t('bhajanVideo'), icon: Video },
+              { id: 'audio', label: t('bhajanAudio'), icon: Music },
+              { id: 'u_video', label: t('upayeVideo'), icon: Sparkles },
+              { id: 'u_audio', label: t('upayeAudio'), icon: Music }
+            ].map(tab => (
+              <TouchableOpacity 
+                key={tab.id}
+                style={[
+                  styles.tab, 
+                  { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' },
+                  activeTab === tab.id && { backgroundColor: 'rgba(255,193,7,0.1)', borderColor: theme.primary }
+                ]}
+                onPress={() => setActiveTab(tab.id)}
+              >
+                <tab.icon 
+                  size={18} 
+                  color={activeTab === tab.id ? theme.primary : theme.subtext} 
+                />
+                <Text style={[
+                  styles.tabText, 
+                  { color: activeTab === tab.id ? theme.primary : theme.subtext }
+                ]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        <FlatList
+          data={filteredData}
+          keyExtractor={(item) => item.id?.videoId || item.id?.toString() || Math.random().toString()}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconBox}>
+                <Heart size={40} color={theme.primary} fill={theme.primary} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                {t('noLikedItems')}
               </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      <FlatList
-        data={filteredData}
-        keyExtractor={(item) => item.id?.videoId || item.id?.toString() || Math.random().toString()}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconBox}>
-              <Heart size={40} color={theme.primary} fill={theme.primary} />
+              <Text style={[styles.emptySubtitle, { color: theme.subtext }]}>
+                {t('saveFavoriteDivine')}
+              </Text>
             </View>
-            <Text style={[styles.emptyTitle, { color: theme.text }]}>
-              {t('noLikedItems')}
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: theme.subtext }]}>
-              {t('saveFavoriteDivine')}
-            </Text>
-          </View>
-        }
-      />
+          }
+        />
 
-      <ConfirmationModal 
-        visible={showConfirm}
-        title={t('removeFavTitle') || 'Remove from Favorites'}
-        message={t('removeFavMsg') || 'Do you want to remove this from your divine collection?'}
-        confirmText={t('remove') || 'Remove'}
-        onConfirm={confirmRemove}
-        onCancel={() => setShowConfirm(false)}
-        type="danger"
-      />
-    </View>
+        <ConfirmationModal 
+          visible={showConfirm}
+          title={t('removeFavTitle') || 'Remove from Favorites'}
+          message={t('removeFavMsg') || 'Do you want to remove this from your divine collection?'}
+          confirmText={t('remove') || 'Remove'}
+          onConfirm={confirmRemove}
+          onCancel={() => setShowConfirm(false)}
+          type="danger"
+        />
+      </View>
+    </ScreenWrapper>
   );
 }
 

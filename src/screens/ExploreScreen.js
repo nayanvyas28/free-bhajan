@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions, 
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import Header from '../components/Header';
+import ScreenWrapper from '../components/ScreenWrapper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getCategories, searchBhajans } from '../services/youtubeApi';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
@@ -132,79 +133,81 @@ export default function ExploreScreen({ navigation }) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Header />
-      
-      <View style={styles.searchSection}>
-        <View style={[styles.searchInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Search size={20} color={theme.primary} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={() => handleSearch(searchQuery)}
-            placeholder={t('searchPlaceholder')}
-            placeholderTextColor={theme.subtext}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={clearSearch}>
-              <X size={20} color={theme.subtext} />
-            </TouchableOpacity>
-          )}
+    <ScreenWrapper hasTabBar={true}>
+      <View style={[styles.container]}>
+        <Header />
+        
+        <View style={styles.searchSection}>
+          <View style={[styles.searchInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Search size={20} color={theme.primary} style={styles.searchIcon} />
+            <TextInput
+              style={[styles.searchInput, { color: theme.text }]}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={() => handleSearch(searchQuery)}
+              placeholder={t('searchPlaceholder')}
+              placeholderTextColor={theme.subtext}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={clearSearch}>
+                <X size={20} color={theme.subtext} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-      </View>
 
-      {loading ? (
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color={theme.primary} />
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {isSearching ? (
-            <View style={styles.resultsContainer}>
-              {filteredCategories.length > 0 && (
-                <View style={styles.catResults}>
-                  <Text style={[styles.resultsTitle, { color: theme.text }]}>{t('suggestedCategories')}</Text>
-                  <View style={styles.grid}>
-                    {filteredCategories.map((item) => (
-                      <TouchableOpacity 
-                        key={item.id || item.name}
-                        style={styles.card}
-                        onPress={() => navigation.navigate('HomeTab', { category: item.name })}
-                      >
-                        <Image source={{ uri: item.image_url }} style={styles.image} />
-                        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.overlay}>
-                          <Text style={styles.name}>{language === 'hi' && item.name_hi ? item.name_hi : t(item.name)}</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    ))}
+        {loading ? (
+          <View style={styles.loader}>
+            <ActivityIndicator size="large" color={theme.primary} />
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            {isSearching ? (
+              <View style={styles.resultsContainer}>
+                {filteredCategories.length > 0 && (
+                  <View style={styles.catResults}>
+                    <Text style={[styles.resultsTitle, { color: theme.text }]}>{t('suggestedCategories')}</Text>
+                    <View style={styles.grid}>
+                      {filteredCategories.map((item) => (
+                        <TouchableOpacity 
+                          key={item.id || item.name}
+                          style={styles.card}
+                          onPress={() => navigation.navigate('HomeTab', { category: item.name })}
+                        >
+                          <Image source={{ uri: item.image_url }} style={styles.image} />
+                          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.overlay}>
+                            <Text style={styles.name}>{language === 'hi' && item.name_hi ? item.name_hi : t(item.name)}</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   </View>
-                </View>
-              )}
+                )}
 
-              <Text style={[styles.resultsTitle, { color: theme.text, marginTop: 20 }]}>
-                {searchResults.length > 0 ? `${t('searchResults')} (${searchResults.length})` : t('noResults')}
-              </Text>
-              {searchResults.map((item) => (
-                <VideoCard
-                  key={item.id?.videoId || item.id || item.audioUrl}
-                  video={item}
-                  isFav={favIds.includes(item.id?.videoId || item.id)}
-                  onFavorite={() => toggleFavorite(item)}
-                  onPress={() => playVideo(item, searchResults)}
-                />
-              ))}
-            </View>
-          ) : (
-            <>
-              {renderSection('deity', t('deities'), <Flower size={20} color="#FFB300" />)}
-              
-              {renderSection('dosh', t('kundliDosh'), <Stars size={20} color="#FFB300" />)}
-            </>
-          )}
-        </ScrollView>
-      )}
-    </View>
+                <Text style={[styles.resultsTitle, { color: theme.text, marginTop: 20 }]}>
+                  {searchResults.length > 0 ? `${t('searchResults')} (${searchResults.length})` : t('noResults')}
+                </Text>
+                {searchResults.map((item) => (
+                  <VideoCard
+                    key={item.id?.videoId || item.id || item.audioUrl}
+                    video={item}
+                    isFav={favIds.includes(item.id?.videoId || item.id)}
+                    onFavorite={() => toggleFavorite(item)}
+                    onPress={() => playVideo(item, searchResults)}
+                  />
+                ))}
+              </View>
+            ) : (
+              <>
+                {renderSection('deity', t('deities'), <Flower size={20} color="#FFB300" />)}
+                
+                {renderSection('dosh', t('kundliDosh'), <Stars size={20} color="#FFB300" />)}
+              </>
+            )}
+          </ScrollView>
+        )}
+      </View>
+    </ScreenWrapper>
   );
 }
 
