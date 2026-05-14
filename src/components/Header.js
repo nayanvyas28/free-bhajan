@@ -7,8 +7,6 @@ import { useNavigation } from '@react-navigation/native';
 import { User, LogIn, Languages, Menu, Search, Calendar } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSidebar } from '../context/SidebarContext';
-import { useBanners } from '../context/BannerContext';
-import AdBanner from './AdBanner';
 
 const Header = ({ customTitle, customSubtitle }) => {
   const { theme, isDarkMode } = useTheme();
@@ -16,86 +14,82 @@ const Header = ({ customTitle, customSubtitle }) => {
   const { t, language, toggleLanguage } = useLanguage();
   const { toggleSidebar } = useSidebar();
   const navigation = useNavigation();
-  const { getBanner } = useBanners();
 
   const getInitials = (name) => {
-    if (!name) return 'U';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+    if (!name || name === 'undefined') return 'U';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
   return (
-    <>
-      <View style={[styles.container, { backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.8)', borderBottomColor: theme.border }]}>
-        <View style={styles.logoSection}>
-          <TouchableOpacity 
-            onPress={toggleSidebar} 
-            style={styles.menuHandle}
-            activeOpacity={0.7}
+    <View style={[styles.container, { backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.8)', borderBottomColor: theme.border }]}>
+      <View style={styles.logoSection}>
+        <TouchableOpacity 
+          onPress={toggleSidebar} 
+          style={styles.menuHandle}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.menuLine, { backgroundColor: theme.primary }]} />
+          <View style={[styles.menuLine, { backgroundColor: theme.primary, width: 16 }]} />
+          <View style={[styles.menuLine, { backgroundColor: theme.primary, width: 20 }]} />
+        </TouchableOpacity>
+        
+        <View style={{ flex: 1, marginLeft: 4 }}>
+          <Text 
+            style={[styles.title, { color: theme.text }]} 
+            numberOfLines={1} 
+            ellipsizeMode="tail"
           >
-            <View style={[styles.menuLine, { backgroundColor: theme.primary }]} />
-            <View style={[styles.menuLine, { backgroundColor: theme.primary, width: 16 }]} />
-            <View style={[styles.menuLine, { backgroundColor: theme.primary, width: 20 }]} />
-          </TouchableOpacity>
-          
-          <View style={{ flex: 1, marginLeft: 4 }}>
-            <Text 
-              style={[styles.title, { color: theme.text }]} 
-              numberOfLines={1} 
-              ellipsizeMode="tail"
-            >
-              {customTitle || 'MantraPuja'}
-            </Text>
-            <Text 
-              style={[styles.subtitle, { color: theme.subtext }]} 
-              numberOfLines={1}
-            >
-              {customSubtitle || t('spiritualLibrary')}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.actions}>
-          <TouchableOpacity 
-            style={[styles.iconBtn, { backgroundColor: theme.card }]}
-            onPress={() => navigation.navigate('Calendar')}
+            {customTitle || 'MantraPuja'}
+          </Text>
+          <Text 
+            style={[styles.subtitle, { color: theme.subtext }]} 
+            numberOfLines={1}
           >
-            <Calendar size={20} color={theme.text} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.langBtn, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '33' }]}
-            onPress={toggleLanguage}
-          >
-            <Text style={[styles.langText, { color: theme.primary }]}>
-              {language === 'en' ? 'हि' : 'EN'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            onPress={() => isAuthenticated ? navigation.navigate('Profile') : navigation.navigate('Login')}
-          >
-            {isAuthenticated ? (
-              <View style={styles.profileWrapper}>
-                <LinearGradient
-                  colors={[theme.primary, '#FF9100']}
-                  style={styles.profileCircle}
-                >
-                  <Text style={styles.initials}>{getInitials(profile?.full_name)}</Text>
-                </LinearGradient>
-                <View style={[styles.onlineStatus, { backgroundColor: '#10B981' }]} />
-              </View>
-            ) : (
-              <View style={[styles.profileCircle, { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }]}>
-                <User size={20} color={theme.subtext} />
-              </View>
-            )}
-          </TouchableOpacity>
+            {customSubtitle || t('spiritualLibrary')}
+          </Text>
         </View>
       </View>
-      <View style={{ paddingVertical: 5 }}>
-        <AdBanner banner={getBanner('top')} />
+
+      <View style={styles.actions}>
+        <TouchableOpacity 
+          style={[styles.iconBtn, { backgroundColor: theme.card }]}
+          onPress={() => navigation.navigate('Calendar')}
+        >
+          <Calendar size={20} color={theme.text} />
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.langBtn, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '33' }]}
+          onPress={toggleLanguage}
+        >
+          <Text style={[styles.langText, { color: theme.primary }]}>
+            {language === 'en' ? 'हि' : 'EN'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          onPress={() => isAuthenticated ? navigation.navigate('Profile') : navigation.navigate('Login')}
+        >
+          {isAuthenticated ? (
+            <View style={styles.profileWrapper}>
+              <LinearGradient
+                colors={[theme.primary, '#FF9100']}
+                style={styles.profileCircle}
+              >
+                <Text style={styles.initials} numberOfLines={1}>{getInitials(profile?.full_name || profile?.username)}</Text>
+              </LinearGradient>
+              <View style={[styles.onlineStatus, { backgroundColor: '#10B981' }]} />
+            </View>
+          ) : (
+            <View style={[styles.profileCircle, { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }]}>
+              <User size={20} color={theme.subtext} />
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
-    </>
+    </View>
   );
 };
 

@@ -24,6 +24,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { usePlayer } from '../context/PlayerContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSidebar } from '../context/SidebarContext';
+import { useBanners } from '../context/BannerContext';
 
 const DEFAULT_CATEGORIES = [
   { name: "All", name_hi: "सभी" },
@@ -71,7 +72,7 @@ const DIVINE_QUOTES = [
 const HomeHeader = memo(({ 
   theme, isDarkMode, t, language, query, setQuery, loadVideos, 
   activeCategory, activeSubType, categories, 
-  handleCategoryPress, handleSubTypePress, dailyQuote, DIVINE_QUOTES, topBanner
+  handleCategoryPress, handleSubTypePress, dailyQuote, DIVINE_QUOTES
 }) => {
   const quoteData = dailyQuote || DIVINE_QUOTES[0];
   const displayQuote = {
@@ -154,6 +155,8 @@ export default function HomeScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [favIds, setFavIds] = useState([]);
   const [dailyQuote, setDailyQuote] = useState(null);
+  const { getBannersByPosition } = useBanners();
+  const topBanners = getBannersByPosition('top');
   const { playVideo } = usePlayer();
 
 
@@ -350,7 +353,7 @@ export default function HomeScreen({ navigation, route }) {
     : videos;
 
   return (
-    <ScreenWrapper hasTabBar={true}>
+    <ScreenWrapper hasTabBar={true} showTopBanner={false}>
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <Header />
         
@@ -374,6 +377,8 @@ export default function HomeScreen({ navigation, route }) {
             </TouchableOpacity>
           )}
         </View>
+
+        <AdBanner banners={topBanners} />
 
         <FlatList
           data={listData}
@@ -530,6 +535,13 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, fontFamily: 'Outfit-Bold', marginBottom: 20, textAlign: 'center', opacity: 0.5 },
   retryBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 25, paddingVertical: 14, borderRadius: 16, elevation: 5 },
   retryText: { color: '#FFF', fontSize: 14, fontFamily: 'Outfit-Bold' },
+  floatingAdWrapper: {
+    position: 'absolute',
+    bottom: 65, // Just above the bottom nav bar
+    left: 0,
+    right: 0,
+    zIndex: 99,
+  },
   floatingBanner: {
     position: 'absolute',
     bottom: 65, // Tab bar height

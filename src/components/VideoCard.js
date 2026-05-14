@@ -5,6 +5,8 @@ import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { CONFIG } from '../constants/Config';
+
 const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -23,7 +25,7 @@ const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
     try {
       const shareUrl = video.type === 'youtube' ? `https://youtube.com/watch?v=${video.id?.videoId || video.id}` : (video.url || video.audioUrl);
       const result = await Share.share({
-        message: `Listen to "${title}" on MantraPuja Bhajan App. 🙏\n\n${shareUrl}\n\nDownload MantraPuja Bhajan for more Bhajans & Mantras!`,
+        message: `🙏 Jai Shree Ram! 🙏\n\nListen to this beautiful Bhajan: "${title}"\n\n🎵 Listen here: ${shareUrl}\n\n📲 Download *${CONFIG.APP_NAME}* app for more Bhajans, Mantras & Panchang:\n${CONFIG.PLAY_STORE_URL}`,
       });
     } catch (error) {
       console.log(error.message);

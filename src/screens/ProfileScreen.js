@@ -6,8 +6,10 @@ import {
   TextInput, 
   TouchableOpacity, 
   ScrollView, 
-  ActivityIndicator
+  ActivityIndicator,
+  Share
 } from 'react-native';
+import { CONFIG } from '../constants/Config';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -15,7 +17,7 @@ import { useCustomAlert } from '../context/AlertContext';
 import { useSidebar } from '../context/SidebarContext';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, LogOut, Save, ChevronLeft, Info, ChevronRight, Palette, Sun, Moon, Monitor, Heart, Languages } from 'lucide-react-native';
+import { User, LogOut, Save, ChevronLeft, Info, ChevronRight, Palette, Sun, Moon, Monitor, Heart, Languages, Share2 } from 'lucide-react-native';
 
 export default function ProfileScreen({ navigation }) {
   const { theme, themeMode, setThemeMode, isDarkMode } = useTheme();
@@ -199,6 +201,26 @@ export default function ProfileScreen({ navigation }) {
                 <Heart size={20} color="#FF3B30" fill="#FF3B30" />
               </View>
               <Text style={[styles.menuItemText, { color: theme.text }]}>{t('favorites')}</Text>
+            </View>
+            <ChevronRight size={20} color={theme.subtext} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.menuItem, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 12 }]}
+            onPress={async () => {
+              try {
+                await Share.share({
+                  message: `🙏 Jai Shree Ram! 🙏\n\nMain *${CONFIG.APP_NAME}* app use kar raha hoon Bhajans, Mantras aur Daily Panchang ke liye. Aap bhi download karein:\n\n${CONFIG.PLAY_STORE_URL}`,
+                });
+              } catch (e) {}
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuItemLeft}>
+              <View style={[styles.menuIconBox, { backgroundColor: 'rgba(76, 175, 80, 0.1)' }]}>
+                <Share2 size={20} color="#4CAF50" />
+              </View>
+              <Text style={[styles.menuItemText, { color: theme.text }]}>{t('shareApp') || 'Share App'}</Text>
             </View>
             <ChevronRight size={20} color={theme.subtext} />
           </TouchableOpacity>

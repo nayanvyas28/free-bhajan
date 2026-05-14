@@ -1,5 +1,6 @@
-import React, { createContext, useState, useContext, useCallback, useRef } from 'react';
+import React, { createContext, useState, useContext, useCallback, useRef, useEffect } from 'react';
 import { searchBhajans, getCuratedBhajans, getSolutions, getKathas } from '../services/youtubeApi';
+import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
 
 const PlayerContext = createContext();
 
@@ -10,10 +11,40 @@ export const PlayerProvider = ({ children }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [queue, setQueue] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [isRepeat, setIsRepeat] = useState(false);
+  const [favIds, setFavIds] = useState([]);
 
   // Refs so callbacks always have fresh values (no stale closure)
   const queueRef = useRef([]);
   const indexRef = useRef(-1);
+  const shuffleRef = useRef(false);
+
+  const loadFavorites = async () => {
+    try {
+      const favs = await getFavorites();
+      setFavIds(favs.map(f => f.id?.videoId || f.id));
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    loadFavorites();
+  }, []);
+
+  const toggleFavorite = useCallback(async (video) => {
+    if (!video) return;
+    const videoId = video.id?.videoId || video.id;
+    setFavIds(prev => {
+      const isFav = prev.includes(videoId);
+      if (isFav) {
+        removeFavorite(videoId);
+        return prev.filter(id => id !== videoId);
+      } else {
+        saveFavorite(video);
+        return [...prev, videoId];
+      }
+    });
+  }, []);
 
   const playVideo = useCallback(async (video, videoList = []) => {
     if (!video) return;
@@ -39,17 +70,14 @@ export const PlayerProvider = ({ children }) => {
     setCurrentIndex(initialIndex === -1 ? 0 : initialIndex);
     indexRef.current = initialIndex === -1 ? 0 : initialIndex;
 
-    // Then handle suggestions in the background ONLY if no list was provided
+    // Suggestion logic...
     if (videoList.length === 0 && finalQueue.length <= 5) {
       try {
         let suggestions = [];
         if (normalizedVideo.is_solution) {
-          // Fetch from dedicated solutions table
           const dedicated = await getSolutions();
-          // Fetch from bhajans table where category is 'Solution' or 'Upay'
           const bhajanSolutions = await getCuratedBhajans('Solution');
           const bhajanUpays = await getCuratedBhajans('Upay');
-          
           suggestions = [...dedicated, ...bhajanSolutions, ...bhajanUpays];
         } else if (normalizedVideo.is_katha) {
           const bhajanKathas = await getCuratedBhajans(null, null, 'Katha');
@@ -57,9 +85,7 @@ export const PlayerProvider = ({ children }) => {
           suggestions = [...bhajanKathas, ...dedicatedKathas];
         } else {
           const category = normalizedVideo.snippet?.channelTitle !== 'Bhajan' ? normalizedVideo.snippet?.channelTitle : null;
-          // PASS NULL FOR TYPE to allow both YouTube and Direct Video suggestions
           const rawSuggestions = await getCuratedBhajans(category, null);
-          // EXPLICITLY filter out solutions and kathas from the normal bhajan list
           suggestions = rawSuggestions.filter(s => !s.is_solution && !s.is_katha);
         }
         
@@ -73,22 +99,31 @@ export const PlayerProvider = ({ children }) => {
           setQueue(updatedQueue);
           queueRef.current = updatedQueue;
         }
-      } catch (err) {
-        console.log("Suggestion error:", err);
-      }
+      } catch (err) {}
     }
   }, []);
 
   const playNext = useCallback(() => {
     const q = queueRef.current;
-    const i = indexRef.current;
-    if (i < q.length - 1) {
-      const nextIndex = i + 1;
-      setCurrentVideo(q[nextIndex]);
-      setCurrentIndex(nextIndex);
-      indexRef.current = nextIndex;
-      setIsPlaying(true);
+    if (q.length === 0) return;
+
+    let nextIndex = indexRef.current + 1;
+
+    if (shuffleRef.current) {
+      // Pick random index excluding current if possible
+      nextIndex = Math.floor(Math.random() * q.length);
+      if (nextIndex === indexRef.current && q.length > 1) {
+        nextIndex = (nextIndex + 1) % q.length;
+      }
+    } else if (nextIndex >= q.length) {
+      // Loop back to start if at end
+      nextIndex = 0;
     }
+
+    setCurrentVideo(q[nextIndex]);
+    setCurrentIndex(nextIndex);
+    indexRef.current = nextIndex;
+    setIsPlaying(true);
   }, []);
 
   const playPrev = useCallback(() => {
@@ -101,6 +136,17 @@ export const PlayerProvider = ({ children }) => {
       indexRef.current = prevIndex;
       setIsPlaying(true);
     }
+  }, []);
+
+  const toggleShuffle = useCallback(() => {
+    setIsShuffle(prev => {
+      shuffleRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
+  const toggleRepeat = useCallback(() => {
+    setIsRepeat(prev => !prev);
   }, []);
 
   const pauseVideo = useCallback(() => setIsPlaying(false), []);
@@ -127,6 +173,12 @@ export const PlayerProvider = ({ children }) => {
         playNext,
         playPrev,
         queue,
+        isShuffle,
+        isRepeat,
+        toggleShuffle,
+        toggleRepeat,
+        favIds,
+        toggleFavorite,
         hasHold: queue.length > 0
       }}
     >

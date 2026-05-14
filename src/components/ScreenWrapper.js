@@ -5,24 +5,39 @@ import { useBanners } from '../context/BannerContext';
 import AdBanner from './AdBanner';
 import { useTheme } from '../context/ThemeContext';
 
-const ScreenWrapper = ({ children, hasTabBar = false, style }) => {
+const ScreenWrapper = ({ 
+  children, 
+  hasTabBar = false, 
+  style, 
+  showTopBanner = true
+}) => {
   const insets = useSafeAreaInsets();
-  const { getBanner } = useBanners();
+  const { getBannersByPosition } = useBanners();
   const { theme } = useTheme();
+
+  const topBanners = getBannersByPosition('top');
+  const bottomBanners = getBannersByPosition('bottom');
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }, style]}>
+      {/* Top Banner Carousel - Controlled from Admin */}
+      {showTopBanner && topBanners.length > 0 && (
+        <View style={{ paddingTop: insets.top }}>
+          <AdBanner banners={topBanners} height={65} noContainer={false} />
+        </View>
+      )}
+
       {/* Main Screen Content */}
-      <View style={{ flex: 1, paddingTop: insets.top }}>
+      <View style={{ flex: 1, paddingTop: !showTopBanner ? insets.top : 0 }}>
         {children}
       </View>
 
-      {/* Bottom Banner - Above Tab Bar or at Bottom */}
+      {/* Bottom Banner Carousel - Just above Tab Bar */}
       <View style={{ 
-        paddingBottom: hasTabBar ? 70 : insets.bottom + 10,
+        paddingBottom: hasTabBar ? 58 : insets.bottom + 5,
         backgroundColor: 'transparent'
       }}>
-        <AdBanner banner={getBanner('bottom')} />
+        <AdBanner banners={bottomBanners} height={60} noContainer={true} />
       </View>
     </View>
   );

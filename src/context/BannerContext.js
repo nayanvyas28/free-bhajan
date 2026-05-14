@@ -22,10 +22,14 @@ export const BannerProvider = ({ children }) => {
     fetchBanners();
   }, []);
 
-  const getBanner = (position) => banners.find(b => b.position === position);
+  const getBannersByPosition = (position) => banners.filter(b => {
+    // Fallback: If position is missing, treat it as 'top'
+    const bPos = b.position || 'top';
+    return bPos === position && b.is_visible;
+  });
 
   return (
-    <BannerContext.Provider value={{ banners, getBanner, fetchBanners, loading }}>
+    <BannerContext.Provider value={{ banners, getBannersByPosition, fetchBanners, loading }}>
       {children}
     </BannerContext.Provider>
   );

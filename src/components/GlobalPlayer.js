@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Image,
-  Dimensions, Animated, ActivityIndicator, PanResponder
+  Dimensions, Animated, ActivityIndicator, PanResponder, Share
 } from 'react-native';
-import { Play, Pause, X, ChevronDown, SkipBack, SkipForward, List, BookOpen, Music, Plus, Minus, Type, Maximize } from 'lucide-react-native';
+import { Play, Pause, X, ChevronDown, SkipBack, SkipForward, List, BookOpen, Music, Plus, Minus, Type, Maximize, Share2, Shuffle, Repeat, Heart } from 'lucide-react-native';
+import { CONFIG } from '../constants/Config';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import YoutubeIframe from 'react-native-youtube-iframe';
 import { usePlayer } from '../context/PlayerContext';
@@ -17,7 +18,25 @@ const { height, width } = Dimensions.get('window');
 export default function GlobalPlayer() {
   const { theme, isDarkMode } = useTheme();
   const { t } = useLanguage();
-  const { currentVideo, isPlaying, pauseVideo, resumeVideo, closePlayer, playNext, playPrev, queue, playVideo } = usePlayer();
+  const { 
+    currentVideo, 
+    isPlaying, 
+    pauseVideo, 
+    resumeVideo, 
+    closePlayer, 
+    playNext, 
+    playPrev, 
+    queue, 
+    playVideo,
+    isShuffle,
+    isRepeat,
+    toggleShuffle,
+    toggleRepeat,
+    favIds,
+    toggleFavorite
+  } = usePlayer();
+
+  const isFav = currentVideo && favIds.includes(currentVideo.id?.videoId || currentVideo.id);
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -28,6 +47,7 @@ export default function GlobalPlayer() {
   const [showControls, setShowControls] = useState(true);
   const [autoScroll, setAutoScroll] = useState(true);
   const [activeLyricIndex, setActiveLyricIndex] = useState(-1);
+  // Removed local isRepeat/isShuffle states as they are now in context
   const expandAnim = useRef(new Animated.Value(0)).current;
   const prevUrlRef = useRef(null);
   const isPlayingRef = useRef(isPlaying);
@@ -160,6 +180,7 @@ export default function GlobalPlayer() {
   const player = useVideoPlayer(null, (p) => {
     p.loop = false;
     p.staysActiveInBackground = true;
+    p.showNowPlayingControls = true; // Explicitly enable system controls
     p.autoplay = isPlayingRef.current;
   });
 
@@ -231,6 +252,13 @@ export default function GlobalPlayer() {
   useEffect(() => {
     playerRef.current = player;
   }, [player]);
+
+  // Sync expo-video loop with context state
+  useEffect(() => {
+    if (player) {
+      player.loop = isRepeat;
+    }
+  }, [isRepeat, player]);
 
   // 6. STATUS LISTENERS & TIME SYNC (EXPO-VIDEO)
   useEffect(() => {
@@ -558,6 +586,14 @@ export default function GlobalPlayer() {
 
           {isAudioMode ? (
             <View style={styles.audioContainer}>
+              {/* Hidden VideoView to keep notification session active on Android */}
+              {!isYoutube && (
+                <VideoView 
+                  player={player} 
+                  style={{ width: 1, height: 1, position: 'absolute', opacity: 0 }} 
+                  nativeControls={false}
+                />
+              )}
               <View style={styles.sliderWrapper}>
                 <ScrollView 
                   horizontal 
@@ -673,6 +709,24 @@ export default function GlobalPlayer() {
                   <Text style={[styles.spotifyTtl, { color: theme.text }]} numberOfLines={1}>{title}</Text>
                   <Text style={[styles.spotifySub, { color: theme.primary }]}>{category}</Text>
                 </View>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity 
+                    onPress={async () => {
+                      try {
+                        const shareUrl = isYoutube ? `https://youtube.com/watch?v=${currentVideo.id?.videoId || currentVideo.id}` : (currentVideo.url || currentVideo.audioUrl);
+                        await Share.share({
+                          message: `🙏 Jai Shree Ram! 🙏\n\nListen to "${title}"\n\n🎵 Listen here: ${shareUrl}\n\n📲 Download *${CONFIG.APP_NAME}* for more:\n${CONFIG.PLAY_STORE_URL}`,
+                        });
+                      } catch (e) {}
+                    }}
+                    style={styles.actionCircle}
+                  >
+                    <Share2 size={22} color={theme.text} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => toggleFavorite(currentVideo)} style={styles.actionCircle}>
+                    <Heart size={22} color={isFav ? '#FF3B30' : theme.text} fill={isFav ? '#FF3B30' : 'transparent'} />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <View style={styles.spotifyProgArea}>
@@ -693,11 +747,25 @@ export default function GlobalPlayer() {
               </View>
 
               <View style={styles.spotifyCtrlRow}>
-                <TouchableOpacity onPress={playPrev}><SkipBack size={32} color={theme.text} fill={theme.text} /></TouchableOpacity>
+                <TouchableOpacity onPress={toggleShuffle} style={styles.sideBtn}>
+                  <Shuffle size={26} color={isShuffle ? theme.primary : (isDarkMode ? '#666' : '#999')} />
+                </TouchableOpacity>
+                
+                <TouchableOpacity onPress={playPrev} style={styles.sideBtn}>
+                  <SkipBack size={32} color={theme.text} fill={theme.text} />
+                </TouchableOpacity>
+                
                 <TouchableOpacity onPress={isPlaying ? pauseVideo : resumeVideo} style={[styles.spotifyPlayBtn, { backgroundColor: theme.text }]}>
                   {isPlaying ? <Pause size={38} color={isDarkMode ? '#000' : '#FFF'} fill={isDarkMode ? '#000' : '#FFF'} /> : <Play size={38} color={isDarkMode ? '#000' : '#FFF'} fill={isDarkMode ? '#000' : '#FFF'} style={{ marginLeft: 4 }} />}
                 </TouchableOpacity>
-                <TouchableOpacity onPress={playNext}><SkipForward size={32} color={theme.text} fill={theme.text} /></TouchableOpacity>
+                
+                <TouchableOpacity onPress={playNext} style={styles.sideBtn}>
+                  <SkipForward size={32} color={theme.text} fill={theme.text} />
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={toggleRepeat} style={styles.sideBtn}>
+                  <Repeat size={26} color={isRepeat ? theme.primary : (isDarkMode ? '#666' : '#999')} />
+                </TouchableOpacity>
               </View>
             </View>
           ) : (
@@ -710,7 +778,16 @@ export default function GlobalPlayer() {
                     height={width * 0.5625} width={width} play={isPlaying} videoId={currentVideo?.id?.videoId}
                     onChangeState={(state) => {
                       if (state === 'playing') resumeVideo();
-                      else if (state === 'paused' || state === 'ended') pauseVideo();
+                      else if (state === 'paused') pauseVideo();
+                      else if (state === 'ended') {
+                        if (isRepeat) {
+                          ytPlayerRef.current?.seekTo(0, true);
+                          resumeVideo();
+                        } else {
+                          pauseVideo();
+                          playNext();
+                        }
+                      }
                     }}
                     initialPlayerParams={{ rel: 0, modestbranding: 1, controls: 0 }}
                   />
@@ -798,8 +875,50 @@ export default function GlobalPlayer() {
               </View>
 
               <View style={styles.videoInfoArea}>
-                <Text style={[styles.videoTtl, { color: theme.text }]} numberOfLines={2}>{title}</Text>
-                <Text style={[styles.videoSub, { color: theme.primary }]}>{category}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.videoTtl, { color: theme.text }]} numberOfLines={2}>{title}</Text>
+                  <Text style={[styles.videoSub, { color: theme.primary }]}>{category}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <TouchableOpacity onPress={() => toggleFavorite(currentVideo)} style={styles.actionCircle}>
+                    <Heart size={22} color={isFav ? '#FF3B30' : theme.text} fill={isFav ? '#FF3B30' : 'transparent'} />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={async () => {
+                      try {
+                        const shareUrl = isYoutube ? `https://youtube.com/watch?v=${currentVideo.id?.videoId || currentVideo.id}` : (currentVideo.url || currentVideo.audioUrl);
+                        await Share.share({
+                          message: `🙏 Jai Shree Ram! 🙏\n\nListen to "${title}"\n\n🎵 Listen here: ${shareUrl}\n\n📲 Download *${CONFIG.APP_NAME}* for more:\n${CONFIG.PLAY_STORE_URL}`,
+                        });
+                      } catch (e) {}
+                    }}
+                    style={styles.actionCircle}
+                  >
+                    <Share2 size={22} color={theme.text} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={[styles.spotifyCtrlRow, { marginTop: 10, marginBottom: 20 }]}>
+                <TouchableOpacity onPress={toggleShuffle} style={styles.sideBtn}>
+                  <Shuffle size={24} color={isShuffle ? theme.primary : (isDarkMode ? '#666' : '#999')} />
+                </TouchableOpacity>
+                
+                <TouchableOpacity onPress={playPrev} style={styles.sideBtn}>
+                  <SkipBack size={28} color={theme.text} fill={theme.text} />
+                </TouchableOpacity>
+                
+                <TouchableOpacity onPress={isPlaying ? pauseVideo : resumeVideo} style={[styles.spotifyPlayBtn, { width: 56, height: 56, backgroundColor: theme.text }]}>
+                  {isPlaying ? <Pause size={30} color={isDarkMode ? '#000' : '#FFF'} fill={isDarkMode ? '#000' : '#FFF'} /> : <Play size={30} color={isDarkMode ? '#000' : '#FFF'} fill={isDarkMode ? '#000' : '#FFF'} style={{ marginLeft: 4 }} />}
+                </TouchableOpacity>
+                
+                <TouchableOpacity onPress={playNext} style={styles.sideBtn}>
+                  <SkipForward size={28} color={theme.text} fill={theme.text} />
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={toggleRepeat} style={styles.sideBtn}>
+                  <Repeat size={24} color={isRepeat ? theme.primary : (isDarkMode ? '#666' : '#999')} />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.upNextContainer}>
