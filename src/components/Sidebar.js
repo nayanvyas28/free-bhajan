@@ -26,7 +26,8 @@ import {
   Music,
   Flame,
   BookOpen,
-  Sparkles
+  Sparkles,
+  Gift
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -54,13 +55,14 @@ export default function Sidebar() {
   };
 
   const menuItems = [
-    { id: 'home', title: t('home') || 'Home', icon: Home, screen: 'MainTabs', params: { screen: 'HomeTab' } },
+    { id: 'home', title: t('home') || 'Home', icon: Home, screen: 'MainTabs', params: { screen: 'HomeTab', params: { screen: 'Home' } } },
     { id: 'liked', title: t('liked') || 'Liked Content', icon: Heart, screen: 'Favorites' },
-    { id: 'calendar', title: t('calendar') || 'Spiritual Calendar', icon: Calendar, screen: 'Calendar' },
+    { id: 'calendar', title: t('calendar') || 'Spiritual Calendar', icon: Calendar, screen: 'MainTabs', params: { screen: 'HomeTab', params: { screen: 'Calendar' } } },
     { id: 'katha', title: 'Vrat Katha', icon: BookOpen, screen: 'Katha', params: { kathaId: 'latest' } },
     { id: 'solutions', title: 'Solutions (Upay)', icon: Sparkles, screen: 'MainTabs', params: { screen: 'Solution' } },
     { id: 'aarti', title: 'MantraPuja Aarti', icon: Flame, screen: 'MainTabs', params: { screen: 'Aarti' } },
     { id: 'audio', title: 'Audio Bhajans', icon: Music, screen: 'Audio' },
+    { id: 'referral', title: 'Refer & Earn', icon: Gift, screen: 'Referral' },
   ];
 
   const secondaryItems = [
@@ -81,7 +83,7 @@ export default function Sidebar() {
   if (!isOpen && anim._value === 0) return null;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents={isOpen ? 'auto' : 'none'}>
+    <View style={[StyleSheet.absoluteFill, { zIndex: 9999, elevation: 9999 }]} pointerEvents={isOpen ? 'auto' : 'none'}>
       {/* Backdrop */}
       <TouchableWithoutFeedback onPress={closeSidebar}>
         <Animated.View style={[styles.backdrop, { opacity }]}>

@@ -32,6 +32,7 @@ export default function ExploreScreen({ navigation }) {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [favIds, setFavIds] = useState([]);
+  const [filteredCategories, setFilteredCategories] = useState([]);
 
   useEffect(() => {
     loadCategories();
@@ -97,8 +98,6 @@ export default function ExploreScreen({ navigation }) {
     setSearchResults([]);
     setFilteredCategories([]);
   };
-
-  const [filteredCategories, setFilteredCategories] = useState([]);
 
   const renderSection = (type, title, icon) => {
     const filtered = categories.filter(c => (c.type || 'deity') === type);

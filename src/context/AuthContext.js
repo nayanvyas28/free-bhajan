@@ -12,15 +12,53 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generatedOtp, setGeneratedOtp] = useState(null);
+  const [referralSettings, setReferralSettings] = useState(null);
 
   useEffect(() => {
     checkUser();
+    fetchReferralSettings();
   }, []);
+
+  const fetchReferralSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'referral_config')
+        .single();
+      
+      if (data) {
+        setReferralSettings(data.value);
+      }
+    } catch (err) {
+      console.log('[AUTH] Referral settings fetch failed, using defaults');
+    }
+  };
 
   const checkUser = async () => {
     const savedProfile = await AsyncStorage.getItem('@user_profile');
     if (savedProfile) {
-      const p = JSON.parse(savedProfile);
+      let p = JSON.parse(savedProfile);
+      
+      // Daily Reset Logic
+      const lastUpdate = new Date(p.updated_at || new Date());
+      const today = new Date();
+      if (lastUpdate.toDateString() !== today.toDateString()) {
+        console.log('[AUTH] New day detected, resetting listening time');
+        p.listening_time_used = 0;
+        p.updated_at = today;
+        await supabase.from('profiles').update({ listening_time_used: 0 }).eq('id', p.id);
+        await AsyncStorage.setItem('@user_profile', JSON.stringify(p));
+      }
+      
+      // Auto-generate referral code if missing (for existing users)
+      if (!p.referral_code) {
+        const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        p.referral_code = newCode;
+        await supabase.from('profiles').update({ referral_code: newCode }).eq('id', p.id);
+        await AsyncStorage.setItem('@user_profile', JSON.stringify(p));
+      }
+      
       setProfile(p);
       setUser({ id: p.id });
     }
@@ -66,10 +104,12 @@ export const AuthProvider = ({ children }) => {
     console.log('[AUTH] Initiating login for:', phoneNumber);
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
-    // IMPORTANT: Logging the OTP for manual verification
-    console.log(`\n******************************************`);
-    console.log(`[DEBUG] GENERATED OTP FOR ${phoneNumber}: ${otp}`);
-    console.log(`******************************************\n`);
+    // IMPORTANT: Logging the OTP for manual verification in development only
+    if (__DEV__) {
+      console.log(`\n******************************************`);
+      console.log(`[DEBUG] GENERATED OTP FOR ${phoneNumber}: ${otp}`);
+      console.log(`******************************************\n`);
+    }
     
     setGeneratedOtp(otp);
 
@@ -83,14 +123,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const verifyWhatsAppLogin = async (phoneNumber, inputOtp, fullName) => {
+  const verifyWhatsAppLogin = async (phoneNumber, inputOtp, fullName, referralCodeUsed = null) => {
     console.log(`[AUTH] Verifying OTP for ${phoneNumber}. Expected: ${generatedOtp}, Input: ${inputOtp}`);
     
-    const isMasterOtp = inputOtp === '123456' && (phoneNumber === '+917974899898' || phoneNumber === '7974899898');
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    const isTestingNumber = cleanPhone === '7974899898' || cleanPhone === '917974899898';
+    const isMasterOtp = inputOtp === '123456' && isTestingNumber;
     
     if (inputOtp !== generatedOtp && !isMasterOtp) {
       console.error('[AUTH] Verification Failed: Code mismatch');
-      throw new Error('Invalid OTP code. Please try again or use debug code.');
+      throw new Error('Invalid OTP code. Please try again.');
     }
 
     try {
@@ -118,17 +160,46 @@ export const AuthProvider = ({ children }) => {
       if (existingProfile) {
         console.log('[AUTH] Existing user found:', existingProfile.full_name);
         finalProfile = existingProfile;
+        
+        // If user didn't have a referral code, generate one now
+        if (!finalProfile.referral_code) {
+          const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+          const { data: updated } = await supabase
+            .from('profiles')
+            .update({ referral_code: newCode })
+            .eq('id', finalProfile.id)
+            .select()
+            .single();
+          if (updated) finalProfile = updated;
+        }
       } else {
         console.log('[AUTH] Creating new profile for:', phoneNumber);
         
-        // Since we don't have Supabase Auth, we'll store profile data
-        // For production, you'd want a real backend to handle this
+        const myReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        let referredBy = null;
+        if (referralCodeUsed) {
+          const { data: referrer } = await supabase
+            .from('profiles')
+            .select('id, referral_code')
+            .eq('referral_code', referralCodeUsed)
+            .maybeSingle();
+          
+          if (referrer) {
+            referredBy = referrer.referral_code;
+            // Increment referrer's count
+            await supabase.rpc('increment_referral_count', { referrer_code: referralCodeUsed });
+          }
+        }
+
         const { data: newProfile, error: insertError } = await supabase
           .from('profiles')
           .insert([
             { 
               full_name: fullName, 
-              phone_number: phoneNumber 
+              phone_number: phoneNumber,
+              referral_code: myReferralCode,
+              referred_by: referredBy
             }
           ])
           .select()
@@ -177,6 +248,43 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const getListeningLimit = () => {
+    if (!profile) return 0;
+    
+    const config = referralSettings || {
+      base_minutes: 30,
+      minutes_per_referral: 15,
+      max_referral_bonus_minutes: 300,
+      unlimited_threshold: 10,
+      is_referral_system_enabled: true
+    };
+
+    if (!config.is_referral_system_enabled) return Infinity;
+
+    // Check for unlimited threshold
+    if (config.unlimited_threshold && (profile.referral_count || 0) >= config.unlimited_threshold) {
+      return Infinity;
+    }
+
+    const referralBonus = Math.min(
+      (profile.referral_count || 0) * config.minutes_per_referral,
+      config.max_referral_bonus_minutes
+    );
+
+    return config.base_minutes + referralBonus;
+  };
+
+  const checkReferralCode = async (code) => {
+    if (!code) return null;
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('referral_code', code.toUpperCase())
+      .maybeSingle();
+    
+    return data;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -188,6 +296,9 @@ export const AuthProvider = ({ children }) => {
         checkUserExists,
         updateProfile,
         signOut,
+        getListeningLimit,
+        checkReferralCode,
+        referralSettings,
         isAuthenticated: !!profile
       }}
     >

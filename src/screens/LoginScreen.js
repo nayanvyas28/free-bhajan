@@ -13,13 +13,14 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useCustomAlert } from '../context/AlertContext';
-import { Phone, MessageSquare, ArrowRight, User } from 'lucide-react-native';
+import { Phone, MessageSquare, ArrowRight, User, Gift } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function LoginScreen({ navigation }) {
   const { theme } = useTheme();
   const { t } = useLanguage();
-  const { startWhatsAppLogin, verifyWhatsAppLogin } = useAuth();
+  const { startWhatsAppLogin, verifyWhatsAppLogin, checkUserExists } = useAuth();
   const { showAlert } = useCustomAlert();
   
   const [phone, setPhone] = useState('');
@@ -30,16 +31,37 @@ export default function LoginScreen({ navigation }) {
   const [showNameField, setShowNameField] = useState(false);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(0);
-  const { checkUserExists } = useAuth();
+  const [referralCode, setReferralCode] = useState('');
 
   // Handle countdown timer
-  React.useEffect(() => {
+  useEffect(() => {
     let interval;
     if (timer > 0) {
       interval = setInterval(() => setTimer(t => t - 1), 1000);
     }
     return () => clearInterval(interval);
   }, [timer]);
+
+  useEffect(() => {
+    checkClipboardForReferral();
+  }, []);
+
+  const checkClipboardForReferral = async () => {
+    try {
+      const text = await Clipboard.getStringAsync();
+      if (text) {
+        // Find 6-char alphanumeric code in clipboard text
+        const match = text.match(/(?:code:|REF-|refer\/)([A-Z0-9]{6})/i) || text.match(/\b([A-Z0-9]{6})\b/i);
+        if (match && match[1] && !referralCode) {
+          const detectedCode = match[1].toUpperCase();
+          setReferralCode(detectedCode);
+          console.log('[AUTH] Auto-filled referral code from clipboard:', detectedCode);
+        }
+      }
+    } catch (e) {
+      console.log('[AUTH] Clipboard check failed:', e);
+    }
+  };
 
   const handleNext = async () => {
     if (phone.length < 10) {
@@ -107,6 +129,7 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
+
   const handleVerifyOtp = async () => {
     if (otp.length < 6) {
       showAlert({
@@ -120,7 +143,7 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
-      await verifyWhatsAppLogin(formattedPhone, otp, name);
+      await verifyWhatsAppLogin(formattedPhone, otp, name, referralCode);
       navigation.goBack();
     } catch (error) {
       showAlert({
@@ -180,17 +203,30 @@ export default function LoginScreen({ navigation }) {
             </View>
 
             {showNameField && (
-              <View style={[styles.inputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                <User size={20} color={theme.primary} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { color: theme.text }]}
-                  placeholder={t('yourName')}
-                  placeholderTextColor={theme.subtext}
-                  value={name}
-                  onChangeText={setName}
-                  autoFocus
-                />
-              </View>
+              <>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                  <User size={20} color={theme.primary} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: theme.text }]}
+                    placeholder={t('yourName')}
+                    placeholderTextColor={theme.subtext}
+                    value={name}
+                    onChangeText={setName}
+                  />
+                </View>
+
+                <View style={[styles.inputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                  <Gift size={20} color={theme.primary} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: theme.text }]}
+                    placeholder={t('referralCode') || 'Referral Code (Optional)'}
+                    placeholderTextColor={theme.subtext}
+                    value={referralCode}
+                    onChangeText={setReferralCode}
+                    autoCapitalize="characters"
+                  />
+                </View>
+              </>
             )}
 
             <TouchableOpacity 

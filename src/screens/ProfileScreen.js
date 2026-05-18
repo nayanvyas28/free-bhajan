@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useCustomAlert } from '../context/AlertContext';
 import { useSidebar } from '../context/SidebarContext';
+import { usePlayer } from '../context/PlayerContext';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, LogOut, Save, ChevronLeft, Info, ChevronRight, Palette, Sun, Moon, Monitor, Heart, Languages, Share2 } from 'lucide-react-native';
@@ -24,6 +25,7 @@ export default function ProfileScreen({ navigation }) {
   const { profile, signOut, updateProfile } = useAuth();
   const { t } = useLanguage();
   const { showAlert } = useCustomAlert();
+  const { closePlayer } = usePlayer();
   
   const [name, setName] = useState(profile?.full_name || '');
   const [loading, setLoading] = useState(false);
@@ -68,6 +70,7 @@ export default function ProfileScreen({ navigation }) {
           text: t('logout'), 
           style: 'destructive', 
           onPress: async () => {
+            closePlayer();
             await signOut();
             navigation.replace('MainTabs');
           } 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, Search, Lightbulb, Flame, Music, Languages, LayoutGrid } from 'lucide-react-native';
+import { Home, Search, Lightbulb, Flame, Music, Languages, LayoutGrid, Calendar } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { View, StyleSheet, Platform } from 'react-native';
 import HomeScreen from '../screens/HomeScreen';
@@ -15,6 +15,7 @@ import AboutScreen from '../screens/AboutScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import KathaScreen from '../screens/KathaScreen';
+import ReferralScreen from '../screens/ReferralScreen';
 import { AuthProvider } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -24,6 +25,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+const HomeStack = createNativeStackNavigator();
+
+function HomeStackNavigator() {
+  return (
+    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+      <HomeStack.Screen name="Home" component={HomeScreen} />
+      <HomeStack.Screen name="Calendar" component={CalendarScreen} />
+    </HomeStack.Navigator>
+  );
+}
 
 function TabNavigator() {
     const { theme, isDarkMode } = useTheme();
@@ -83,7 +94,7 @@ function TabNavigator() {
         }
       })}
     >
-      <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: t('home') }} />
+      <Tab.Screen name="HomeTab" component={HomeStackNavigator} options={{ title: t('home') }} />
       <Tab.Screen name="Explore" component={ExploreScreen} options={{ title: t('explore') }} />
       <Tab.Screen name="Music" component={AudioScreen} options={{ title: t('music') }} />
       <Tab.Screen name="Solution" component={SolutionScreen} options={{ title: t('solution') }} />
@@ -122,6 +133,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Audio" component={AudioScreen} />
       <Stack.Screen name="Katha" component={KathaScreen} />
       <Stack.Screen name="Settings" component={ProfileScreen} />
+      <Stack.Screen name="Referral" component={ReferralScreen} />
     </Stack.Navigator>
   );
 }

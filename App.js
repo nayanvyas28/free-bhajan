@@ -52,8 +52,8 @@ export default function App() {
                     <NavigationContainer>
                       <StatusBar style="auto" />
                       <AppNavigator />
-                      <Sidebar />
                       <GlobalPlayer />
+                      <Sidebar />
                     </NavigationContainer>
                   </SafeAreaProvider>
                 </SidebarProvider>

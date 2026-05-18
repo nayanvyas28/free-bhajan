@@ -1,4 +1,6 @@
 import React, { createContext, useState, useContext, useCallback, useRef, useEffect } from 'react';
+import { useAuth } from './AuthContext';
+import { Alert } from 'react-native';
 import { searchBhajans, getCuratedBhajans, getSolutions, getKathas } from '../services/youtubeApi';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
 
@@ -14,6 +16,7 @@ export const PlayerProvider = ({ children }) => {
   const [isShuffle, setIsShuffle] = useState(false);
   const [isRepeat, setIsRepeat] = useState(false);
   const [favIds, setFavIds] = useState([]);
+  const { profile, getListeningLimit } = useAuth();
 
   // Refs so callbacks always have fresh values (no stale closure)
   const queueRef = useRef([]);
@@ -48,6 +51,15 @@ export const PlayerProvider = ({ children }) => {
 
   const playVideo = useCallback(async (video, videoList = []) => {
     if (!video) return;
+
+    if (profile && (profile.listening_time_used || 0) >= getListeningLimit()) {
+      Alert.alert(
+        "Darshan Limit Reached / सुनने की सीमा समाप्त",
+        "Aapki daily listening limit pure ho gayi hai. Naye bhajans sunne ke liye apne dosto ko refer karein aur lifetime unlimited access payein!\n\nYour daily listening limit is complete. Refer friends to get more minutes or unlock unlimited lifetime access!",
+        [{ text: "OK", style: "default" }]
+      );
+      return; // Limit reached, don't play
+    }
     
     // Normalize video object
     const videoId = video.id?.videoId || video.id;
@@ -101,11 +113,16 @@ export const PlayerProvider = ({ children }) => {
         }
       } catch (err) {}
     }
-  }, []);
+  }, [profile, getListeningLimit]);
 
   const playNext = useCallback(() => {
     const q = queueRef.current;
     if (q.length === 0) return;
+
+    if (profile && (profile.listening_time_used || 0) >= getListeningLimit()) {
+      setIsPlaying(false);
+      return;
+    }
 
     let nextIndex = indexRef.current + 1;
 

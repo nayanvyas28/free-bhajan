@@ -14,7 +14,9 @@ import {
   Quote,
   Flame,
   BookOpen,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Gift,
+  MessageSquare
 } from 'lucide-react';
 
 import { supabase } from './lib/supabase';
@@ -30,6 +32,8 @@ import ManageAartis from './components/ManageAartis';
 import ManageKathas from './components/ManageKathas';
 import ManageCalendar from './components/ManageCalendar';
 import ManageBanners from './components/ManageBanners';
+import ManageReferrals from './components/ManageReferrals';
+import ManageOtp from './components/ManageOtp';
 import { Layout } from 'lucide-react';
 
 function App() {
@@ -90,6 +94,8 @@ function App() {
             <SidebarLink to="/quotes" icon={<Quote size={22} />} label="Daily Quotes" />
             <SidebarLink to="/import" icon={<FileSpreadsheet size={22} />} label="Bulk Import" />
             <SidebarLink to="/banners" icon={<Layout size={22} />} label="App Banners" />
+            <SidebarLink to="/referrals" icon={<Gift size={22} />} label="Referral System" />
+            <SidebarLink to="/otp" icon={<MessageSquare size={22} />} label="OTP Settings" />
             <SidebarLink to="/list" icon={<ListMusic size={22} />} label="Manage Library" />
           </nav>
 
@@ -133,6 +139,8 @@ function App() {
               <Route path="/quotes" element={<ManageQuotes />} />
               <Route path="/import" element={<ExcelImport />} />
               <Route path="/banners" element={<ManageBanners />} />
+              <Route path="/referrals" element={<ManageReferrals />} />
+              <Route path="/otp" element={<ManageOtp />} />
               <Route path="/list" element={<BhajanList />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

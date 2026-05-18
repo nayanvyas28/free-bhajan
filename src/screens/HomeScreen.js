@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
   quoteCard: {
     marginHorizontal: 20,
     marginTop: 10,
-    marginBottom: 0,
+    marginBottom: 15,
     padding: 12,
     borderRadius: 20,
     borderWidth: 1,

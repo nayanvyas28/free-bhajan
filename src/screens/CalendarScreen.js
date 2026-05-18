@@ -24,7 +24,7 @@ const { width } = Dimensions.get('window');
 
 export default function CalendarScreen() {
   const { theme, isDarkMode } = useTheme();
-  const { t, language, toggleLanguage } = useLanguage();
+  const { t, language } = useLanguage();
   const { toggleSidebar } = useSidebar();
   const navigation = useNavigation();
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -144,66 +144,12 @@ export default function CalendarScreen() {
   const selectedDayEvent = getEventForDate(selectedDate);
 
   return (
-    <ScreenWrapper hasTabBar={false}>
+    <ScreenWrapper hasTabBar={true}>
       <View style={[styles.container]}>
         <Header customTitle={t('calendar') || 'Spiritual Calendar'} />
         
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-          {/* MONTH HEADER */}
-          <View style={styles.calendarHeader}>
-            <TouchableOpacity style={styles.navBtn} onPress={handlePrevMonth}>
-              <ChevronLeft color={theme.text} size={24} />
-            </TouchableOpacity>
-            <View style={styles.monthTitleBox}>
-              <Text style={[styles.monthText, { color: theme.text }]}>
-                {language === 'hi' ? months_hi[currentMonth.getMonth()] : months[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-              </Text>
-              <Text style={[styles.hindiMonth, { color: theme.primary }]}>Vaishakha - Jyeshtha</Text>
-            </View>
-            <TouchableOpacity style={styles.navBtn} onPress={handleNextMonth}>
-              <ChevronRight color={theme.text} size={24} />
-            </TouchableOpacity>
-          </View>
-
-          {/* CALENDAR GRID */}
-          <View style={[styles.calendarGrid, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <View style={styles.weekRow}>
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                <Text key={i} style={[styles.weekDay, { color: theme.subtext }]}>{day}</Text>
-              ))}
-            </View>
-            <View style={styles.daysGrid}>
-              {blanks.map(i => <View key={`blank-${i}`} style={styles.dayCell} />)}
-              {days.map(day => (
-                <TouchableOpacity 
-                  key={day} 
-                  onPress={() => setSelectedDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))}
-                  style={[
-                    styles.dayCell, 
-                    isSelected(day) && { backgroundColor: theme.primary, borderRadius: 12 },
-                    !isSelected(day) && isToday(day) && { borderBottomWidth: 2, borderBottomColor: theme.primary }
-                  ]}
-                >
-                  <Text style={[
-                    styles.dayText, 
-                    { color: theme.text }, 
-                    isSelected(day) && { color: '#000', fontFamily: 'Outfit-Bold' },
-                    !isSelected(day) && hasEvent(day) && { color: theme.primary, fontFamily: 'Outfit-Bold' }
-                  ]}>
-                    {day}
-                  </Text>
-                  {hasEvent(day) && (
-                    <View style={[
-                      styles.dot, 
-                      { backgroundColor: isSelected(day) ? '#000' : theme.primary }
-                    ]} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* DAILY PANCHANG & MUHURAT */}
+          {/* DAILY PANCHANG & MUHURAT - MOVED TO TOP */}
           <View style={styles.panchangSection}>
             <View style={styles.sectionHeader}>
               <Stars size={18} color={theme.primary} />
@@ -293,6 +239,60 @@ export default function CalendarScreen() {
                 </Text>
               </View>
             )}
+          </View>
+
+          {/* MONTH HEADER */}
+          <View style={styles.calendarHeader}>
+            <TouchableOpacity style={styles.navBtn} onPress={handlePrevMonth}>
+              <ChevronLeft color={theme.text} size={24} />
+            </TouchableOpacity>
+            <View style={styles.monthTitleBox}>
+              <Text style={[styles.monthText, { color: theme.text }]}>
+                {language === 'hi' ? months_hi[currentMonth.getMonth()] : months[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+              </Text>
+              <Text style={[styles.hindiMonth, { color: theme.primary }]}>Vaishakha - Jyeshtha</Text>
+            </View>
+            <TouchableOpacity style={styles.navBtn} onPress={handleNextMonth}>
+              <ChevronRight color={theme.text} size={24} />
+            </TouchableOpacity>
+          </View>
+
+          {/* CALENDAR GRID */}
+          <View style={[styles.calendarGrid, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <View style={styles.weekRow}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+                <Text key={i} style={[styles.weekDay, { color: theme.subtext }]}>{day}</Text>
+              ))}
+            </View>
+            <View style={styles.daysGrid}>
+              {blanks.map(i => <View key={`blank-${i}`} style={styles.dayCell} />)}
+              {days.map(day => (
+                <TouchableOpacity 
+                  key={day} 
+                  onPress={() => setSelectedDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))}
+                  style={[
+                    styles.dayCell, 
+                    isSelected(day) && { backgroundColor: theme.primary, borderRadius: 12 },
+                    !isSelected(day) && isToday(day) && { borderBottomWidth: 2, borderBottomColor: theme.primary }
+                  ]}
+                >
+                  <Text style={[
+                    styles.dayText, 
+                    { color: theme.text }, 
+                    isSelected(day) && { color: '#000', fontFamily: 'Outfit-Bold' },
+                    !isSelected(day) && hasEvent(day) && { color: theme.primary, fontFamily: 'Outfit-Bold' }
+                  ]}>
+                    {day}
+                  </Text>
+                  {hasEvent(day) && (
+                    <View style={[
+                      styles.dot, 
+                      { backgroundColor: isSelected(day) ? '#000' : theme.primary }
+                    ]} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
           {/* SELECTED DATE EVENT */}
