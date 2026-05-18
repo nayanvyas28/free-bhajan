@@ -72,8 +72,9 @@ export default function ManageAartis() {
       });
       setFormData({ ...formData, url: publicUrl, type: 'audio' });
       if (!formData.title) setFormData(prev => ({ ...prev, title: file.name.split('.')[0] }));
+      alert('✅ File uploaded to Cloudflare successfully!');
     } catch (error) {
-      alert('Upload failed: ' + error.message);
+      alert('❌ Upload failed: ' + error.message);
     } finally {
       setUploading(false);
     }
@@ -89,11 +90,13 @@ export default function ManageAartis() {
           .update(formData)
           .eq('id', editingAarti.id);
         if (error) throw error;
+        alert('✨ Aarti updated successfully!');
       } else {
         const { error } = await supabase
           .from('bhajans')
           .insert([formData]);
         if (error) throw error;
+        alert('🎊 New Aarti added successfully!');
       }
       setShowModal(false);
       setEditingAarti(null);
@@ -108,7 +111,7 @@ export default function ManageAartis() {
       });
       fetchAartis();
     } catch (error) {
-      alert('Error: ' + error.message);
+      alert('❌ Error: ' + error.message);
     } finally {
       setSaving(false);
     }
@@ -283,10 +286,53 @@ export default function ManageAartis() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Aarti Lyrics</label>
+                <div className="flex justify-between items-center ml-1">
+                  <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Aarti Lyrics</label>
+                  <span className="text-[10px] bg-slate-800 text-amber-500 font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                    💡 Perfect Layout Style
+                  </span>
+                </div>
+
+                {/* Highly premium format guidance block for administrators */}
+                <div className="bg-[#0F172A] border border-slate-800/80 rounded-2xl p-5 space-y-4 text-xs">
+                  <div>
+                    <span className="font-black text-amber-500 flex items-center gap-1.5 text-[13px] mb-1">
+                      📖 Option 1: Simple Static Format (Normal)
+                    </span>
+                    <p className="text-slate-400 leading-relaxed mb-3">
+                      Stanzas ke beech me **ek blank line (space)** chodein. Isme user manually scroll karke padh sakta hai:
+                    </p>
+                    <pre className="bg-[#1E293B]/40 p-4 rounded-xl text-[11px] text-slate-300 font-mono leading-5 border border-slate-850 overflow-x-auto">
+{`जय गणेश जय गणेश, जय गणेश देवा।
+माता जाकी पार्वती पिता महादेवा॥
+
+एक दन्त दयावन्त, चार भुजा धारी।
+माथे सिन्दूर सोहे, मूस की सवारी॥`}
+                    </pre>
+                  </div>
+
+                  <div className="border-t border-slate-800/60 pt-4">
+                    <span className="font-black text-cyan-400 flex items-center gap-1.5 text-[13px] mb-1">
+                      ⏱️ Option 2: Time-Synced Auto-Scroll Format (Karaoke style)
+                    </span>
+                    <p className="text-slate-400 leading-relaxed mb-3">
+                      Agar aap chahte hain ki **audio play hote hi lyrics automatic scroll ho aur live screen par highlight ho**, toh lyrics se pehle time (MM:SS) is format me dalein:
+                    </p>
+                    <pre className="bg-[#1E293B]/40 p-4 rounded-xl text-[11px] text-cyan-200 font-mono leading-5 border border-slate-850 overflow-x-auto">
+{`00:02
+जय गणेश जय गणेश, जय गणेश देवा।
+माता जाकी पार्वती पिता महादेवा॥
+
+00:10
+एक दन्त दयावन्त, चार भुजा धारी।
+माथे सिन्दूर सोहे, मूस की सवारी॥`}
+                    </pre>
+                  </div>
+                </div>
+
                 <textarea 
                   required
-                  className="w-full bg-[#0F172A] border border-slate-800 rounded-3xl px-6 py-4 text-white focus:border-amber-500 outline-none font-bold min-h-[200px]"
+                  className="w-full bg-[#0F172A] border border-slate-800 rounded-3xl px-6 py-4 text-white focus:border-amber-500 outline-none font-bold min-h-[220px]"
                   placeholder="Paste Aarti lyrics here..."
                   value={formData.description}
                   onChange={e => setFormData({...formData, description: e.target.value})}

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import Header from '../components/Header';
+import ScreenWrapper from '../components/ScreenWrapper';
 import { getCuratedBhajans } from '../services/youtubeApi';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
 import { MoreVertical, Music, Heart, Search, X } from 'lucide-react-native';
@@ -130,59 +131,61 @@ export default function AudioScreen({ navigation }) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Header />
-      
-      <View style={styles.headerSection}>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>{t('spiritualSongs')}</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.dot} />
-          <Text style={[styles.headerSub, { color: theme.subtext }]}>
-            {filteredSongs.length} {filteredSongs.length === 1 ? t('trackFound') : t('tracksFound')}
-          </Text>
+    <ScreenWrapper hasTabBar={true}>
+      <View style={[styles.container]}>
+        <Header />
+        
+        <View style={styles.headerSection}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>{t('spiritualSongs')}</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.dot} />
+            <Text style={[styles.headerSub, { color: theme.subtext }]}>
+              {filteredSongs.length} {filteredSongs.length === 1 ? t('trackFound') : t('tracksFound')}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.searchSection}>
-        <View style={[styles.searchInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Search size={20} color={theme.primary} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={t('searchPlaceholder')}
-            placeholderTextColor={theme.subtext}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <X size={20} color={theme.subtext} />
-            </TouchableOpacity>
-          )}
+        <View style={styles.searchSection}>
+          <View style={[styles.searchInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Search size={20} color={theme.primary} style={styles.searchIcon} />
+            <TextInput
+              style={[styles.searchInput, { color: theme.text }]}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('searchPlaceholder')}
+              placeholderTextColor={theme.subtext}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <X size={20} color={theme.subtext} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-      </View>
 
-      {loading ? (
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color={theme.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={filteredSongs}
-          renderItem={renderSongItem}
-          keyExtractor={(item, index) => index.toString()}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconBox}>
-                <Music size={40} color={theme.primary} />
+        {loading ? (
+          <View style={styles.loader}>
+            <ActivityIndicator size="large" color={theme.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredSongs}
+            renderItem={renderSongItem}
+            keyExtractor={(item, index) => index.toString()}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconBox}>
+                  <Music size={40} color={theme.primary} />
+                </View>
+                <Text style={[styles.emptyText, { color: theme.subtext }]}>{t('noData')}</Text>
               </View>
-              <Text style={[styles.emptyText, { color: theme.subtext }]}>{t('noData')}</Text>
-            </View>
-          }
-        />
-      )}
-    </View>
+            }
+          />
+        )}
+      </View>
+    </ScreenWrapper>
   );
 }
 

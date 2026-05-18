@@ -12,6 +12,7 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import Header from '../components/Header';
+import ScreenWrapper from '../components/ScreenWrapper';
 import { BookOpen, Minus, Plus, Type, Share2, Heart, Loader2, Play, Video as VideoIcon } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../storage/supabase';
@@ -63,8 +64,29 @@ export default function KathaScreen({ route, navigation }) {
 
   const fetchKatha = async () => {
     setLoading(true);
-    // Check if kathaId is a UUID or static key
-    if (kathaId.length > 20) {
+    // Check if kathaId is a UUID, static key, or 'latest'
+    if (kathaId === 'latest') {
+      try {
+        const { data, error } = await supabase
+          .from('kathas')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1);
+        
+        const singleData = data && data.length > 0 ? data[0] : null;
+        if (singleData) {
+          setKatha({
+            ...singleData,
+            image: singleData.image_url,
+            duration: singleData.duration || 0
+          });
+        } else {
+          setKatha(KATHA_DATA['ekadashi_katha']);
+        }
+      } catch (err) {
+        setKatha(KATHA_DATA['ekadashi_katha']);
+      }
+    } else if (kathaId.length > 20) {
       try {
         const { data, error } = await supabase
           .from('kathas')
@@ -94,87 +116,91 @@ export default function KathaScreen({ route, navigation }) {
 
   if (loading || !katha) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <Loader2 color={theme.primary} size={40} />
-      </View>
+      <ScreenWrapper>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <Loader2 color={theme.primary} size={40} />
+        </View>
+      </ScreenWrapper>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Header customTitle={language === 'hi' ? 'व्रत कथा' : 'Vrat Katha'} />
-      
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: katha.image }} style={styles.image} />
-          {katha.video_url && (
-            <TouchableOpacity 
-              style={[styles.playButton, { backgroundColor: theme.primary }]}
-              onPress={() => {
-                const normalizedKatha = {
-                  ...katha,
-                  id: katha.id,
-                  title: language === 'hi' ? katha.title_hi : katha.title,
-                  thumbnail: katha.image,
-                  image_url: katha.image,
-                  url: katha.video_url,
-                  video_url: katha.video_url,
-                  type: (katha.video_url.includes('youtube') || katha.video_url.includes('youtu.be')) ? 'youtube' : 'video'
-                };
-                playVideo(normalizedKatha, [normalizedKatha]);
-              }}
-            >
-              <Play size={24} color="#000" fill="#000" />
-            </TouchableOpacity>
-          )}
-          <LinearGradient
-            colors={['transparent', theme.background]}
-            style={styles.imageOverlay}
-          />
-        </View>
+    <ScreenWrapper hasTabBar={false}>
+      <View style={[styles.container]}>
+        <Header customTitle={language === 'hi' ? 'व्रत कथा' : 'Vrat Katha'} />
+        
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: katha.image }} style={styles.image} />
+            {katha.video_url && (
+              <TouchableOpacity 
+                style={[styles.playButton, { backgroundColor: theme.primary }]}
+                onPress={() => {
+                  const normalizedKatha = {
+                    ...katha,
+                    id: katha.id,
+                    title: language === 'hi' ? katha.title_hi : katha.title,
+                    thumbnail: katha.image,
+                    image_url: katha.image,
+                    url: katha.video_url,
+                    video_url: katha.video_url,
+                    type: (katha.video_url.includes('youtube') || katha.video_url.includes('youtu.be')) ? 'youtube' : 'video'
+                  };
+                  playVideo(normalizedKatha, [normalizedKatha]);
+                }}
+              >
+                <Play size={24} color="#000" fill="#000" />
+              </TouchableOpacity>
+            )}
+            <LinearGradient
+              colors={['transparent', theme.background]}
+              style={styles.imageOverlay}
+            />
+          </View>
 
-        <View style={styles.contentContainer}>
-          <View style={styles.headerRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.title, { color: theme.text }]}>
-                {language === 'hi' ? katha.title_hi : katha.title}
-              </Text>
-              <View style={styles.metaRow}>
-                <BookOpen size={14} color={theme.primary} />
-                <Text style={[styles.metaText, { color: theme.primary }]}>Sacred Story</Text>
+          <View style={styles.contentContainer}>
+            <View style={styles.headerRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.title, { color: theme.text }]}>
+                  {language === 'hi' ? katha.title_hi : katha.title}
+                </Text>
+                <View style={styles.metaRow}>
+                  <BookOpen size={14} color={theme.primary} />
+                  <Text style={[styles.metaText, { color: theme.primary }]}>Sacred Story</Text>
+                </View>
               </View>
+              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.card }]}>
+                <Heart size={20} color={theme.subtext} />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.card }]}>
-              <Heart size={20} color={theme.subtext} />
+
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+            {/* FONT CONTROLS */}
+            <View style={[styles.fontCard, { backgroundColor: theme.card }]}>
+              <TouchableOpacity onPress={() => setFontSize(prev => Math.max(12, prev - 2))} style={styles.fontBtn}>
+                <Minus size={16} color={theme.text} />
+              </TouchableOpacity>
+              <Type size={20} color={theme.primary} />
+              <TouchableOpacity onPress={() => setFontSize(prev => Math.min(32, prev + 2))} style={styles.fontBtn}>
+                <Plus size={16} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.kathaBox}>
+              <Text style={[styles.kathaText, { color: theme.text, fontSize, lineHeight: fontSize * 1.6 }]}>
+                {language === 'hi' ? katha.content_hi : katha.content}
+              </Text>
+            </View>
+
+            <TouchableOpacity style={[styles.shareBtn, { backgroundColor: theme.primary }]}>
+              <Share2 size={20} color="#000" />
+              <Text style={styles.shareBtnText}>Share this Katha</Text>
             </TouchableOpacity>
           </View>
-
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-          {/* FONT CONTROLS */}
-          <View style={[styles.fontCard, { backgroundColor: theme.card }]}>
-            <TouchableOpacity onPress={() => setFontSize(prev => Math.max(12, prev - 2))} style={styles.fontBtn}>
-              <Minus size={16} color={theme.text} />
-            </TouchableOpacity>
-            <Type size={20} color={theme.primary} />
-            <TouchableOpacity onPress={() => setFontSize(prev => Math.min(32, prev + 2))} style={styles.fontBtn}>
-              <Plus size={16} color={theme.text} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.kathaBox}>
-            <Text style={[styles.kathaText, { color: theme.text, fontSize, lineHeight: fontSize * 1.6 }]}>
-              {language === 'hi' ? katha.content_hi : katha.content}
-            </Text>
-          </View>
-
-          <TouchableOpacity style={[styles.shareBtn, { backgroundColor: theme.primary }]}>
-            <Share2 size={20} color="#000" />
-            <Text style={styles.shareBtnText}>Share this Katha</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </View>
+    </ScreenWrapper>
   );
 }
 

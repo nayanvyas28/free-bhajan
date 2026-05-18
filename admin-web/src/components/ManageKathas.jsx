@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 import { uploadToR2 } from '../lib/r2';
 import { 
@@ -52,6 +53,76 @@ export default function ManageKathas() {
     setLoading(false);
   };
 
+  const fileInputRef = useRef(null);
+
+  const handleBulkUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data.length === 0) {
+          alert('Excel file is empty!');
+          setLoading(false);
+          return;
+        }
+
+        // Clean data for Supabase
+        const cleanedData = data.map(row => ({
+          title: row.title || row.Title || '',
+          title_hi: row.title_hi || row.Title_HI || row.title_hindi || '',
+          content: row.content || row.Content || '',
+          content_hi: row.content_hi || row.Content_HI || row.content_hindi || '',
+          image_url: row.image_url || row.Image_URL || '',
+          video_url: row.video_url || row.Video_URL || '',
+          duration: parseInt(row.duration || row.Duration || 0),
+          is_active: true
+        }));
+
+        const { error } = await supabase.from('kathas').insert(cleanedData);
+
+        if (error) {
+          console.error('Error inserting bulk kathas:', error);
+          alert('Error: ' + error.message);
+        } else {
+          alert(`Successfully uploaded ${cleanedData.length} kathas! 🙏`);
+          fetchKathas();
+        }
+      } catch (err) {
+        console.error('Bulk upload error:', err);
+        alert('Error parsing Excel file.');
+      }
+      setLoading(false);
+    };
+    reader.readAsBinaryString(file);
+    // Reset input
+    e.target.value = null;
+  };
+
+  const downloadTemplate = () => {
+    const template = [{
+      title: 'Sample Story Name',
+      title_hi: 'कहानी का नाम',
+      content: 'Detailed story content goes here...',
+      content_hi: 'कहानी का पूरा विवरण यहाँ आएगा...',
+      image_url: 'https://example.com/image.jpg',
+      video_url: 'https://example.com/video.mp4',
+      duration: 300
+    }];
+    const ws = XLSX.utils.json_to_sheet(template);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "KathaTemplate");
+    XLSX.writeFile(wb, "Katha_Bulk_Upload_Template.xlsx");
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -62,11 +133,13 @@ export default function ManageKathas() {
         .update(formData)
         .eq('id', editingKatha.id);
       if (error) alert('Error updating katha');
+      else alert('✨ Katha updated successfully!');
     } else {
       const { error } = await supabase
         .from('kathas')
         .insert([formData]);
       if (error) alert('Error adding katha');
+      else alert('🎊 New Katha added successfully!');
     }
 
     setShowModal(false);
@@ -137,17 +210,41 @@ export default function ManageKathas() {
           </h1>
           <p className="text-slate-400 mt-1 font-medium">Add and manage sacred stories for the app</p>
         </div>
-        <button 
-          onClick={() => {
-            setEditingKatha(null);
-            setFormData({ title: '', title_hi: '', content: '', content_hi: '', image_url: '', video_url: '' });
-            setShowModal(true);
-          }}
-          className="bg-amber-500 hover:bg-amber-600 text-white font-black px-6 py-4 rounded-2xl flex items-center gap-2 shadow-lg shadow-amber-500/30 transition-all active:scale-95"
-        >
-          <Plus size={20} />
-          Add New Katha
-        </button>
+        <div className="flex items-center gap-3">
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleBulkUpload} 
+            accept=".xlsx, .xls, .csv" 
+            className="hidden" 
+          />
+          <button
+            onClick={downloadTemplate}
+            className="bg-slate-800 hover:bg-slate-700 text-white font-black px-6 py-4 rounded-2xl flex items-center gap-2 shadow-lg transition-all active:scale-95"
+          >
+            Download Template
+          </button>
+          
+          <button
+            onClick={() => fileInputRef.current.click()}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-6 py-4 rounded-2xl flex items-center gap-2 shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
+          >
+            <Upload size={20} />
+            Bulk Import
+          </button>
+
+          <button 
+            onClick={() => {
+              setEditingKatha(null);
+              setFormData({ title: '', title_hi: '', content: '', content_hi: '', image_url: '', video_url: '' });
+              setShowModal(true);
+            }}
+            className="bg-amber-500 hover:bg-amber-600 text-white font-black px-6 py-4 rounded-2xl flex items-center gap-2 shadow-lg shadow-amber-500/30 transition-all active:scale-95"
+          >
+            <Plus size={20} />
+            Add New Katha
+          </button>
+        </div>
       </div>
 
       <div className="bg-[#1E293B] p-4 rounded-3xl border border-slate-800 flex items-center gap-4 shadow-xl">

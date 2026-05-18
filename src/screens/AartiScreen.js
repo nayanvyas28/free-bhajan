@@ -17,6 +17,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { usePlayer } from '../context/PlayerContext';
 import Header from '../components/Header';
+import ScreenWrapper from '../components/ScreenWrapper';
 import { getCuratedBhajans } from '../services/youtubeApi';
 import { Play, BookOpen, X, Music, Flame, ChevronRight, Search } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -123,106 +124,114 @@ export default function AartiScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Header customTitle="MantraPuja Aarti" />
-      
-      <FlatList
-        data={filteredAartis}
-        renderItem={renderAartiItem}
-        keyExtractor={(item, index) => item.id?.videoId || item.id || index.toString()}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={() => (
-          <View style={styles.headerHero}>
-            <LinearGradient
-              colors={[theme.primary + '25', 'transparent']}
-              style={styles.heroGradient}
-            />
-            <View style={[styles.searchContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Search size={20} color={theme.primary} />
-              <TextInput
-                style={[styles.searchInput, { color: theme.text }]}
-                placeholder={t('searchPlaceholder') || 'Search Aarti...'}
-                placeholderTextColor={theme.subtext}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
+    <ScreenWrapper hasTabBar={true}>
+      <View style={[styles.container]}>
+        <Header />
+        
+        <FlatList
+          data={filteredAartis}
+          renderItem={renderAartiItem}
+          keyExtractor={(item, index) => item.id?.videoId || item.id || index.toString()}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={() => (
+            <View style={styles.headerHero}>
+              <LinearGradient
+                colors={[theme.primary + '25', 'transparent']}
+                style={styles.heroGradient}
               />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <X size={20} color={theme.subtext} />
-                </TouchableOpacity>
-              )}
+              <View style={[styles.searchContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                <Search size={20} color={theme.primary} />
+                <TextInput
+                  style={[styles.searchInput, { color: theme.text }]}
+                  placeholder={t('searchPlaceholder') || 'Search Aarti...'}
+                  placeholderTextColor={theme.subtext}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <X size={20} color={theme.subtext} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <Text style={[styles.heroSub, { color: theme.subtext, marginTop: 15 }]}>{t('aartiIntro')}</Text>
+              <View style={[styles.divider, { backgroundColor: theme.primary + '20' }]} />
             </View>
-            <Text style={[styles.heroSub, { color: theme.subtext, marginTop: 15 }]}>{t('aartiIntro')}</Text>
-            <View style={[styles.divider, { backgroundColor: theme.primary + '20' }]} />
+          )}
+          ListEmptyComponent={
+            !loading && (
+              <View style={styles.emptyContainer}>
+                <Music size={48} color={theme.subtext} opacity={0.2} />
+                <Text style={[styles.empty, { color: theme.subtext }]}>{t('noData')}</Text>
+              </View>
+            )
+          }
+          ListFooterComponent={<View style={{ height: 160 }} />}
+        />
+
+        {loading && (
+          <View style={styles.loaderOverlay}>
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
         )}
-        ListEmptyComponent={
-          !loading && (
-            <View style={styles.emptyContainer}>
-              <Music size={48} color={theme.subtext} opacity={0.2} />
-              <Text style={[styles.empty, { color: theme.subtext }]}>{t('noData')}</Text>
-            </View>
-          )
-        }
-        ListFooterComponent={<View style={{ height: 160 }} />}
-      />
 
-      {loading && (
-        <View style={styles.loaderOverlay}>
-          <ActivityIndicator size="large" color={theme.primary} />
-        </View>
-      )}
+        {/* Lyrics Modal */}
+        <Modal
+          visible={!!selectedAarti}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setSelectedAarti(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <View style={styles.modalBar} />
+              <View style={styles.modalHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.modalTitle, { color: theme.text }]} numberOfLines={1}>{selectedAarti?.title}</Text>
+                  <Text style={[styles.modalSub, { color: theme.primary }]}>{t('lyrics')}</Text>
+                </View>
+                
+                <View style={styles.fontControls}>
+                  <TouchableOpacity 
+                    onPress={() => setLyricsFontSize(Math.max(12, lyricsFontSize - 2))} 
+                    style={[styles.fontBtn, { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: theme.border }]}
+                  >
+                    <Text style={{ color: theme.text, fontSize: 13, fontWeight: 'bold' }}>A-</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={() => setLyricsFontSize(Math.min(32, lyricsFontSize + 2))} 
+                    style={[styles.fontBtn, { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: theme.border }]}
+                  >
+                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>A+</Text>
+                  </TouchableOpacity>
+                </View>
 
-      {/* Lyrics Modal */}
-      <Modal
-        visible={!!selectedAarti}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setSelectedAarti(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <View style={styles.modalBar} />
-            <View style={styles.modalHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.modalTitle, { color: theme.text }]} numberOfLines={1}>{selectedAarti?.title}</Text>
-                <Text style={[styles.modalSub, { color: theme.primary }]}>{t('lyrics')}</Text>
+                <TouchableOpacity onPress={() => setSelectedAarti(null)} style={[styles.closeBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
+                  <X size={20} color={theme.text} />
+                </TouchableOpacity>
               </View>
               
-              <View style={styles.fontControls}>
-                <TouchableOpacity 
-                  onPress={() => setLyricsFontSize(Math.max(12, lyricsFontSize - 2))} 
-                  style={[styles.fontBtn, { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: theme.border }]}
-                >
-                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: 'bold' }}>A-</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => setLyricsFontSize(Math.min(32, lyricsFontSize + 2))} 
-                  style={[styles.fontBtn, { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: theme.border }]}
-                >
-                  <Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>A+</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity onPress={() => setSelectedAarti(null)} style={[styles.closeBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
-                <X size={20} color={theme.text} />
-              </TouchableOpacity>
+              <ScrollView 
+                contentContainerStyle={styles.lyricsScroll}
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={[styles.lyricsText, { color: theme.text, fontSize: lyricsFontSize, lineHeight: lyricsFontSize * 1.7 }]}>
+                  {(selectedAarti?.description || t('lyricsNotAvailable'))
+                    .replace(/(\d{1,2}):(\d{1,2}):(\d{1,2})|(\d{1,2}):(\d{1,2})/g, '') // Remove timestamps
+                    .replace(/\[.*?\]/g, '') // Remove [Music] etc
+                    .split('\n')
+                    .filter(line => line.trim() !== '') // Remove empty lines
+                    .join('\n')
+                  }
+                </Text>
+                <View style={{ height: 100 }} />
+              </ScrollView>
             </View>
-            
-            <ScrollView 
-              contentContainerStyle={styles.lyricsScroll}
-              showsVerticalScrollIndicator={false}
-            >
-              <Text style={[styles.lyricsText, { color: theme.text, fontSize: lyricsFontSize, lineHeight: lyricsFontSize * 1.7 }]}>
-                {selectedAarti?.description || t('lyricsNotAvailable')}
-              </Text>
-              <View style={{ height: 100 }} />
-            </ScrollView>
           </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
+    </ScreenWrapper>
   );
 }
 

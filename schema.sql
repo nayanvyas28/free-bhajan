@@ -54,3 +54,42 @@ CREATE POLICY "Users can manage their own favorites" ON user_favorites FOR ALL U
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_user_favorites_user ON user_favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_favorites_video ON user_favorites(video_id);
+
+-- System Settings Table
+CREATE TABLE IF NOT EXISTS system_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    description TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- OTP Logs Table
+CREATE TABLE IF NOT EXISTS otp_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    phone_number TEXT NOT NULL,
+    otp_code TEXT NOT NULL,
+    template_used TEXT NOT NULL,
+    status TEXT NOT NULL,
+    response_gateway TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- RLS for new tables
+ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE otp_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read on system_settings" ON system_settings FOR SELECT USING (true);
+CREATE POLICY "Allow authenticated update on system_settings" ON system_settings FOR UPDATE USING (true);
+CREATE POLICY "Allow authenticated insert on system_settings" ON system_settings FOR INSERT USING (true);
+
+CREATE POLICY "Allow public insert on otp_logs" ON otp_logs FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public read on otp_logs" ON otp_logs FOR SELECT USING (true);
+
+-- Default Settings
+INSERT INTO system_settings (key, value, description)
+VALUES ('whatsapp_otp_template', 'service_rejected_hindi', 'The active BhashSMS WhatsApp OTP template name')
+ON CONFLICT (key) DO NOTHING;
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_otp_logs_phone ON otp_logs(phone_number);
+CREATE INDEX IF NOT EXISTS idx_otp_logs_created ON otp_logs(created_at DESC);

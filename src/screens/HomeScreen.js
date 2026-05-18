@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, memo } from 'react'; // Added memo
 import { 
   View, 
   FlatList, 
@@ -12,16 +12,19 @@ import {
   Alert
 } from 'react-native';
 import { Search, X, RefreshCcw, Mic, Quote, User, Languages } from 'lucide-react-native';
-import { searchBhajans, getCuratedBhajans, getCategories, getDailyQuote, getKathas } from '../services/youtubeApi';
+import { searchBhajans, getCuratedBhajans, getCategories, getDailyQuote, getKathas, getBanners } from '../services/youtubeApi';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
 import { useTheme } from '../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import VideoCard from '../components/VideoCard';
+import AdBanner from '../components/AdBanner';
 import Shimmer from '../components/SkeletonLoader';
 import Header from '../components/Header';
+import ScreenWrapper from '../components/ScreenWrapper';
 import { usePlayer } from '../context/PlayerContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSidebar } from '../context/SidebarContext';
+import { useBanners } from '../context/BannerContext';
 
 const DEFAULT_CATEGORIES = [
   { name: "All", name_hi: "सभी" },
@@ -66,12 +69,82 @@ const DIVINE_QUOTES = [
   }
 ];
 
+const HomeHeader = memo(({ 
+  theme, isDarkMode, t, language, query, setQuery, loadVideos, 
+  activeCategory, activeSubType, categories, 
+  handleCategoryPress, handleSubTypePress, dailyQuote, DIVINE_QUOTES
+}) => {
+  const quoteData = dailyQuote || DIVINE_QUOTES[0];
+  const displayQuote = {
+    text: language === 'hi' ? quoteData.text_hi : quoteData.text_en,
+    author: language === 'hi' ? quoteData.author_hi : quoteData.author_en
+  };
+
+  return (
+    <View>
+      {!query && (
+        <>
+          <View style={[styles.quoteCard, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.02)' : '#FFFFFF', borderColor: theme.border, elevation: 2, shadowColor: theme.shadow, shadowOpacity: 0.1, shadowRadius: 5 }]}>
+            <LinearGradient
+              colors={isDarkMode ? ['rgba(255,193,7,0.1)', 'rgba(255,193,7,0.02)'] : ['rgba(255,143,0,0.08)', 'rgba(255,143,0,0.01)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.quoteGradient}
+            />
+            <View style={[styles.quoteIconBox, { backgroundColor: isDarkMode ? 'rgba(255,193,7,0.1)' : 'rgba(255,143,0,0.15)' }]}>
+              <Quote size={20} color={theme.primary} fill={theme.primary} fillOpacity={0.3} />
+            </View>
+            <View style={styles.quoteContent}>
+              <Text style={[styles.quoteText, { color: theme.text, fontSize: 13 }]} numberOfLines={3}>"{displayQuote.text}"</Text>
+              <Text style={[styles.quoteAuthor, { color: theme.primary, fontWeight: '700' }]}>— {displayQuote.author}</Text>
+            </View>
+          </View>
+        </>
+      )}
+
+      <View style={styles.filtersWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {categories.map((cat) => (
+            <TouchableOpacity
+              key={typeof cat === 'string' ? cat : cat.id || cat.name}
+              onPress={() => handleCategoryPress(cat)}
+              style={[
+                styles.categoryChip,
+                { backgroundColor: theme.card, borderColor: 'rgba(255,255,255,0.05)' },
+                activeCategory === (typeof cat === 'string' ? cat : cat.name) && { backgroundColor: theme.primary, borderColor: theme.primary }
+              ]}
+            >
+              <Text style={[styles.categoryText, { color: theme.subtext }, activeCategory === (typeof cat === 'string' ? cat : cat.name) && { color: '#000' }]}>
+                {language === 'hi' && cat.name_hi ? cat.name_hi : t(typeof cat === 'string' ? cat : cat.name)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterRow, { marginTop: 15 }]}>
+          {["All", "Bhajan", "Mantra", "Katha"].map((type) => (
+            <TouchableOpacity
+              key={type}
+              onPress={() => handleSubTypePress(type)}
+              style={[
+                styles.subTypeChip,
+                { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' },
+                activeSubType === type && { backgroundColor: 'rgba(255,193,7,0.1)', borderColor: theme.primary }
+              ]}
+            >
+              <Text style={[styles.subTypeText, { color: theme.subtext }, activeSubType === type && { color: theme.primary }]}>{t(type)}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    </View>
+  );
+});
+
 export default function HomeScreen({ navigation, route }) {
   const { theme, isDarkMode } = useTheme();
   const { t, language } = useLanguage();
   const { toggleSidebar } = useSidebar();
-  
-  const SUB_TYPES = ["All", "Bhajan", "Mantra", "Katha"];
   
   const [videos, setVideos] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
@@ -82,8 +155,11 @@ export default function HomeScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [favIds, setFavIds] = useState([]);
   const [dailyQuote, setDailyQuote] = useState(null);
+  const { getBannersByPosition } = useBanners();
+  const topBanners = getBannersByPosition('top');
   const { playVideo } = usePlayer();
-  const { toggleLanguage } = useLanguage();
+
+
 
   const fetchDailyQuote = async () => {
     const quote = await getDailyQuote();
@@ -99,52 +175,64 @@ export default function HomeScreen({ navigation, route }) {
         setCategories(DEFAULT_CATEGORIES);
       }
     } catch (e) {
-      setCategories(DEFAULT_CATEGORIES);
+      console.log('Error fetching deities:', e);
     }
   };
 
-  const loadVideos = async (searchQuery = '', category = "All", subType = "All") => {
-    if (loading) return;
+  const loadVideos = async (searchQuery = '', cat = 'All', subType = 'All') => {
     setLoading(true);
-    let data = [];
-    
     try {
+      let data = [];
       if (searchQuery) {
         data = await searchBhajans(searchQuery);
-        data = data.filter(v => v.type === 'youtube' || !v.type);
-      } else if (subType === "Katha") {
-        data = await getKathas();
+      } else if (subType === 'Katha') {
+        // Fetch from dedicated kathas table + bhajans tagged as Katha
+        const [bhajanKathas, dedicatedKathas] = await Promise.all([
+          getCuratedBhajans(cat === 'All' ? null : cat, null, 'Katha'),
+          getKathas()
+        ]);
+        data = [...bhajanKathas, ...dedicatedKathas];
+      } else if (cat !== 'All') {
+        data = await getCuratedBhajans(cat, null, subType === 'All' ? null : subType);
+      } else if (subType !== 'All') {
+        data = await getCuratedBhajans(null, null, subType);
       } else {
-        const categoryParam = category === "All" ? null : category;
-        const subTypeParam = subType === "All" ? null : subType;
-        data = await getCuratedBhajans(categoryParam, null, subTypeParam);
+        data = await getCuratedBhajans(null, null, null);
       }
-    } catch (err) {
-      console.log("Load error in HomeScreen:", err);
+
+      // Filter out Aartis, Audio-only files, and Kathas (unless explicitly selected)
+      const filteredData = (data || []).filter(item => {
+        const isAarti = item.subType === 'Aarti' || item.title?.toLowerCase().includes('aarti') || item.title?.includes('आरती');
+        const isAudio = item.type === 'audio';
+        const isKatha = item.subType === 'Katha' || item.title?.toLowerCase().includes('katha') || item.title?.includes('कथा');
+        
+        // Always hide Aartis and Audio on Home
+        if (isAarti || isAudio) return false;
+        
+        // Hide Kathas unless explicitly selected OR searching
+        if (isKatha && subType !== 'Katha' && !searchQuery) return false;
+        
+        return true;
+      });
+      setVideos(filteredData);
+    } catch (e) {
+      console.log('Error loading videos:', e);
+    } finally {
+      setLoading(false);
     }
-    
-    // Filter out audio files and Aarti sub-type
-    const videoOnlyData = (data || []).filter(item => 
-      item.type !== 'audio' && item.subType !== 'Aarti'
-    );
-    setVideos(videoOnlyData);
-    setLoading(false);
   };
 
   useEffect(() => {
     fetchDeities();
     fetchDailyQuote();
-    loadVideos('', activeCategory, activeSubType);
-    loadFavorites();
+    loadVideos();
   }, []);
 
   useEffect(() => {
     if (route.params?.category) {
-      const catName = typeof route.params.category === 'string' ? route.params.category : route.params.category.name;
-      setActiveCategory(catName);
+      setActiveCategory(route.params.category);
       setActiveSubType("All");
-      setQuery('');
-      loadVideos('', catName, "All");
+      loadVideos('', route.params.category, "All");
     } else if (route.params?.searchQuery) {
       setQuery(route.params.searchQuery);
       setActiveCategory("All");
@@ -153,23 +241,33 @@ export default function HomeScreen({ navigation, route }) {
     }
   }, [route.params?.category, route.params?.searchQuery]);
 
+  // Live Search & Category Effect (Debounced for Search)
+  useEffect(() => {
+    if (query.trim().length > 0) {
+      const timer = setTimeout(() => {
+        loadVideos(query, activeCategory, activeSubType);
+      }, 600);
+      return () => clearTimeout(timer);
+    } else {
+      // Reload based on category/subtype when search is empty
+      loadVideos('', activeCategory, activeSubType);
+    }
+  }, [query, activeCategory, activeSubType]);
+
   const clearSearch = () => {
     setQuery('');
-    loadVideos('', activeCategory, activeSubType);
   };
 
-  const handleCategoryPress = (cat) => {
+  const handleCategoryPress = useCallback((cat) => {
     const catName = typeof cat === 'string' ? cat : cat.name;
     setActiveCategory(catName);
-    setQuery('');
-    loadVideos('', catName, activeSubType);
-  };
+    setQuery(''); // This will trigger the clearSearch logic in useEffect
+  }, [activeSubType]);
 
-  const handleSubTypePress = (subType) => {
+  const handleSubTypePress = useCallback((subType) => {
     setActiveSubType(subType);
-    setQuery('');
-    loadVideos('', activeCategory, subType);
-  };
+    setQuery(''); // This will trigger the clearSearch logic in useEffect
+  }, [activeCategory]);
 
   const loadFavorites = async () => {
     const favs = await getFavorites();
@@ -185,7 +283,11 @@ export default function HomeScreen({ navigation, route }) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchDeities(), fetchDailyQuote(), loadVideos(query, activeCategory, activeSubType)]);
+    await Promise.all([
+      fetchDeities(), 
+      fetchDailyQuote(), 
+      loadVideos(query, activeCategory, activeSubType)
+    ]);
     setRefreshing(false);
   }, [query, activeCategory, activeSubType]);
 
@@ -213,65 +315,52 @@ export default function HomeScreen({ navigation, route }) {
     }
   };
 
-  const renderItem = ({ item }) => (
-    <VideoCard
-      video={item}
-      isFav={favIds.includes(item.id?.videoId || item.id)}
-      onFavorite={() => toggleFavorite(item)}
-      onPress={() => {
-        if (item.is_katha) {
-          navigation.navigate('Katha', { kathaId: item.id, title: item.title });
-        } else {
-          console.log("Video clicked:", item.title || item.snippet?.title);
-          playVideo(item, videos);
-        }
-      }}
-    />
-  );
-  const renderHeader = () => {
-    const today = new Date().getDate();
-    const quoteData = dailyQuote || DIVINE_QUOTES[today % DIVINE_QUOTES.length];
-    const displayQuote = {
-      text: language === 'hi' ? quoteData.text_hi : quoteData.text_en,
-      author: language === 'hi' ? quoteData.author_hi : quoteData.author_en
-    };
-
-    return (
-      <View>
-        <View style={styles.headerArea}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <TouchableOpacity onPress={toggleSidebar} activeOpacity={0.7}>
-              <Text style={[styles.headerTitle, { color: theme.text }]}>
-                {t('namaste')}
-              </Text>
-              <Text style={[styles.headerSub, { color: theme.subtext }]}>
-                {t('spiritualLibrary')}
-              </Text>
-            </TouchableOpacity>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <TouchableOpacity 
-                onPress={toggleLanguage}
-                style={styles.refreshBtn}
-              >
-                <Languages size={20} color={theme.primary} />
-                <Text style={{ color: theme.primary, fontSize: 10, fontFamily: 'Outfit-Bold', marginLeft: 4 }}>
-                  {language.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={() => navigation.navigate('Profile')}
-                style={styles.refreshBtn}
-              >
-                <User size={22} color={theme.primary} />
-              </TouchableOpacity>
+  const renderItem = ({ item }) => {
+    if (item.isShimmer) {
+      return (
+        <View style={{ marginBottom: 24, paddingHorizontal: 20 }}>
+          <Shimmer style={{ height: 220, borderRadius: 24 }} />
+          <View style={{ marginTop: 12, flexDirection: 'row', gap: 12 }}>
+            <Shimmer style={{ width: 48, height: 48, borderRadius: 24 }} />
+            <View style={{ flex: 1, gap: 8 }}>
+              <Shimmer style={{ width: '80%', height: 20 }} />
+              <Shimmer style={{ width: '40%', height: 16 }} />
             </View>
           </View>
         </View>
+      );
+    }
 
-        <View style={styles.searchWrapper}>
-          <Search size={22} color={theme.primary} style={styles.searchIcon} />
+    return (
+      <VideoCard
+        video={item}
+        isFav={favIds.includes(item.id?.videoId || item.id)}
+        onFavorite={() => toggleFavorite(item)}
+        onPress={() => {
+          if (item.is_katha) {
+            navigation.navigate('Katha', { kathaId: item.db_id || item.id, title: item.title });
+          } else {
+            console.log("Video clicked:", item.title || item.snippet?.title);
+            playVideo(item, videos);
+          }
+        }}
+      />
+    );
+  };
+
+  const listData = (loading && !refreshing) 
+    ? Array.from({ length: 3 }).map((_, i) => ({ id: `shimmer-${i}`, isShimmer: true }))
+    : videos;
+
+  return (
+    <ScreenWrapper hasTabBar={true} showTopBanner={false}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <Header />
+        
+        <View style={[styles.searchWrapper, { backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.04)' : '#FFFFFF', borderColor: theme.border }]}>
+          <Search size={20} color={theme.primary} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: theme.text }]}
             value={query}
             onChangeText={setQuery}
             onSubmitEditing={() => loadVideos(query, activeCategory, activeSubType)}
@@ -289,104 +378,51 @@ export default function HomeScreen({ navigation, route }) {
           )}
         </View>
 
-        {!query && (
-          <View style={styles.quoteCard}>
-            <LinearGradient
-              colors={['rgba(255,193,7,0.1)', 'rgba(255,193,7,0.02)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.quoteGradient}
-            />
-            <View style={styles.quoteIconBox}>
-              <Quote size={18} color="#FFC107" fill="#FFC107" fillOpacity={0.2} />
-            </View>
-            <View style={styles.quoteContent}>
-              <Text style={styles.quoteText} numberOfLines={3}>"{displayQuote.text}"</Text>
-              <Text style={styles.quoteAuthor}>— {displayQuote.author}</Text>
-            </View>
-          </View>
-        )}
+        <AdBanner banners={topBanners} />
 
-        <View style={styles.filtersWrapper}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-            {categories.map((cat) => (
-              <TouchableOpacity
-                key={typeof cat === 'string' ? cat : cat.id || cat.name}
-                onPress={() => handleCategoryPress(cat)}
-                style={[
-                  styles.categoryChip,
-                  { backgroundColor: theme.card, borderColor: 'rgba(255,255,255,0.05)' },
-                  activeCategory === (typeof cat === 'string' ? cat : cat.name) && { backgroundColor: theme.primary, borderColor: theme.primary }
-                ]}
-              >
-                <Text style={[styles.categoryText, { color: theme.subtext }, activeCategory === (typeof cat === 'string' ? cat : cat.name) && { color: '#000' }]}>
-                  {language === 'hi' && cat.name_hi ? cat.name_hi : t(typeof cat === 'string' ? cat : cat.name)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterRow, { marginTop: 15 }]}>
-            {SUB_TYPES.map((type) => (
-              <TouchableOpacity
-                key={type}
-                onPress={() => handleSubTypePress(type)}
-                style={[
-                  styles.subTypeChip,
-                  { backgroundColor: theme.surface, borderColor: 'rgba(255,255,255,0.05)' },
-                  activeSubType === type && { backgroundColor: 'rgba(255,193,7,0.1)', borderColor: theme.primary }
-                ]}
-              >
-                <Text style={[styles.subTypeText, { color: theme.subtext }, activeSubType === type && { color: theme.primary }]}>{t(type)}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      </View>
-    );
-  };
-  return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {loading && !refreshing ? (
-        <View style={{ padding: 20 }}>
-          {[1, 2, 3].map((i) => (
-            <View key={i} style={{ marginBottom: 24 }}>
-              <Shimmer style={{ height: 220, borderRadius: 24 }} />
-              <View style={{ marginTop: 12, flexDirection: 'row', gap: 12 }}>
-                <Shimmer style={{ width: 48, height: 48, borderRadius: 24 }} />
-                <View style={{ flex: 1, gap: 8 }}>
-                  <Shimmer style={{ width: '80%', height: 20 }} />
-                  <Shimmer style={{ width: '40%', height: 16 }} />
-                </View>
-              </View>
-            </View>
-          ))}
-        </View>
-      ) : (
         <FlatList
-          data={videos}
+          data={listData}
           keyExtractor={(item, index) => (item.id?.videoId || item.id || index.toString())}
           renderItem={renderItem}
-          ListHeaderComponent={renderHeader}
+          ListHeaderComponent={
+            <HomeHeader 
+              theme={theme}
+              isDarkMode={isDarkMode}
+              t={t}
+              language={language}
+              query={query}
+              setQuery={setQuery}
+              loadVideos={loadVideos}
+              activeCategory={activeCategory}
+              activeSubType={activeSubType}
+              categories={categories}
+              handleCategoryPress={handleCategoryPress}
+              handleSubTypePress={handleSubTypePress}
+              dailyQuote={dailyQuote}
+              DIVINE_QUOTES={DIVINE_QUOTES}
+            />
+          }
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.primary]} />
           }
           ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptyText, { color: theme.subtext }]}>{t('noData')}</Text>
-              <TouchableOpacity 
-                style={[styles.retryBtn, { backgroundColor: theme.primary }]}
-                onPress={onRefresh}
-              >
-                <RefreshCcw size={18} color="#FFF" />
-                <Text style={styles.retryText}>{t('retry')}</Text>
-              </TouchableOpacity>
-            </View>
+            !loading && (
+              <View style={styles.emptyState}>
+                <Text style={[styles.emptyText, { color: theme.subtext }]}>{t('noData')}</Text>
+                <TouchableOpacity 
+                  style={[styles.retryBtn, { backgroundColor: theme.primary }]}
+                  onPress={onRefresh}
+                >
+                  <RefreshCcw size={18} color="#FFF" />
+                  <Text style={styles.retryText}>{t('retry')}</Text>
+                </TouchableOpacity>
+              </View>
+            )
           }
         />
-      )}
-    </View>
+      </View>
+    </ScreenWrapper>
   );
 }
 
@@ -408,36 +444,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center', 
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)'
   },
   searchWrapper: {
     marginTop: 15,
     marginHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 20,
     paddingHorizontal: 18,
     height: 60,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   searchIcon: { marginRight: 15 },
   searchInput: {
     flex: 1,
-    color: '#FFF',
     fontSize: 16,
     fontFamily: 'Outfit-Bold',
   },
   quoteCard: {
     marginHorizontal: 20,
-    marginTop: 15,
-    marginBottom: 5,
-    padding: 16,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.02)',
+    marginTop: 10,
+    marginBottom: 15,
+    padding: 12,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
     flexDirection: 'row',
     alignItems: 'center',
     overflow: 'hidden',
@@ -461,7 +491,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Outfit-Bold',
     lineHeight: 20,
-    color: '#FFF',
     fontStyle: 'italic'
   },
   quoteAuthor: {
@@ -471,10 +500,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
     opacity: 0.5,
-    color: '#FFF'
   },
   filtersWrapper: {
-    paddingVertical: 5,
+    paddingVertical: 2,
   },
   filterRow: {
     paddingHorizontal: 20,
@@ -502,9 +530,26 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit-Bold',
     textTransform: 'uppercase',
   },
-  listContent: { paddingBottom: 150 },
+  listContent: { paddingBottom: 100 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 80, paddingHorizontal: 40 },
   emptyText: { fontSize: 16, fontFamily: 'Outfit-Bold', marginBottom: 20, textAlign: 'center', opacity: 0.5 },
   retryBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 25, paddingVertical: 14, borderRadius: 16, elevation: 5 },
-  retryText: { color: '#FFF', fontSize: 14, fontFamily: 'Outfit-Bold' }
+  retryText: { color: '#FFF', fontSize: 14, fontFamily: 'Outfit-Bold' },
+  floatingAdWrapper: {
+    position: 'absolute',
+    bottom: 65, // Just above the bottom nav bar
+    left: 0,
+    right: 0,
+    zIndex: 99,
+  },
+  floatingBanner: {
+    position: 'absolute',
+    bottom: 65, // Tab bar height
+    left: 0,
+    right: 0,
+    paddingTop: 10,
+    paddingBottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 100,
+  }
 });

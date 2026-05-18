@@ -1,5 +1,8 @@
-import React, { createContext, useState, useContext, useCallback, useRef } from 'react';
-import { searchBhajans, getCuratedBhajans } from '../services/youtubeApi';
+import React, { createContext, useState, useContext, useCallback, useRef, useEffect } from 'react';
+import { useAuth } from './AuthContext';
+import { Alert } from 'react-native';
+import { searchBhajans, getCuratedBhajans, getSolutions, getKathas } from '../services/youtubeApi';
+import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
 
 const PlayerContext = createContext();
 
@@ -10,13 +13,53 @@ export const PlayerProvider = ({ children }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [queue, setQueue] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [isRepeat, setIsRepeat] = useState(false);
+  const [favIds, setFavIds] = useState([]);
+  const { profile, getListeningLimit } = useAuth();
 
   // Refs so callbacks always have fresh values (no stale closure)
   const queueRef = useRef([]);
   const indexRef = useRef(-1);
+  const shuffleRef = useRef(false);
+
+  const loadFavorites = async () => {
+    try {
+      const favs = await getFavorites();
+      setFavIds(favs.map(f => f.id?.videoId || f.id));
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    loadFavorites();
+  }, []);
+
+  const toggleFavorite = useCallback(async (video) => {
+    if (!video) return;
+    const videoId = video.id?.videoId || video.id;
+    setFavIds(prev => {
+      const isFav = prev.includes(videoId);
+      if (isFav) {
+        removeFavorite(videoId);
+        return prev.filter(id => id !== videoId);
+      } else {
+        saveFavorite(video);
+        return [...prev, videoId];
+      }
+    });
+  }, []);
 
   const playVideo = useCallback(async (video, videoList = []) => {
     if (!video) return;
+
+    if (profile && (profile.listening_time_used || 0) >= getListeningLimit()) {
+      Alert.alert(
+        "Darshan Limit Reached / सुनने की सीमा समाप्त",
+        "Aapki daily listening limit pure ho gayi hai. Naye bhajans sunne ke liye apne dosto ko refer karein aur lifetime unlimited access payein!\n\nYour daily listening limit is complete. Refer friends to get more minutes or unlock unlimited lifetime access!",
+        [{ text: "OK", style: "default" }]
+      );
+      return; // Limit reached, don't play
+    }
     
     // Normalize video object
     const videoId = video.id?.videoId || video.id;
@@ -39,39 +82,65 @@ export const PlayerProvider = ({ children }) => {
     setCurrentIndex(initialIndex === -1 ? 0 : initialIndex);
     indexRef.current = initialIndex === -1 ? 0 : initialIndex;
 
-    // Then handle suggestions in the background if needed
-    if (finalQueue.length <= 5) {
+    // Suggestion logic...
+    if (videoList.length === 0 && finalQueue.length <= 5) {
       try {
-        const category = normalizedVideo.snippet?.channelTitle !== 'Bhajan' ? normalizedVideo.snippet?.channelTitle : null;
-        const suggestions = await getCuratedBhajans(category, normalizedVideo.type || 'youtube');
+        let suggestions = [];
+        if (normalizedVideo.is_solution) {
+          const dedicated = await getSolutions();
+          const bhajanSolutions = await getCuratedBhajans('Solution');
+          const bhajanUpays = await getCuratedBhajans('Upay');
+          suggestions = [...dedicated, ...bhajanSolutions, ...bhajanUpays];
+        } else if (normalizedVideo.is_katha) {
+          const bhajanKathas = await getCuratedBhajans(null, null, 'Katha');
+          const dedicatedKathas = await getKathas();
+          suggestions = [...bhajanKathas, ...dedicatedKathas];
+        } else {
+          const category = normalizedVideo.snippet?.channelTitle !== 'Bhajan' ? normalizedVideo.snippet?.channelTitle : null;
+          const rawSuggestions = await getCuratedBhajans(category, null);
+          suggestions = rawSuggestions.filter(s => !s.is_solution && !s.is_katha);
+        }
         
         if (suggestions && suggestions.length > 0) {
           const filteredSuggestions = suggestions
             .filter(b => (b.id?.videoId || b.id) !== videoId)
-            .sort(() => 0.5 - Math.random());
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 15);
             
           const updatedQueue = [normalizedVideo, ...filteredSuggestions];
           setQueue(updatedQueue);
           queueRef.current = updatedQueue;
-          setCurrentIndex(0);
-          indexRef.current = 0;
         }
-      } catch (err) {
-        console.log("Suggestion error:", err);
-      }
+      } catch (err) {}
     }
-  }, []);
+  }, [profile, getListeningLimit]);
 
   const playNext = useCallback(() => {
     const q = queueRef.current;
-    const i = indexRef.current;
-    if (i < q.length - 1) {
-      const nextIndex = i + 1;
-      setCurrentVideo(q[nextIndex]);
-      setCurrentIndex(nextIndex);
-      indexRef.current = nextIndex;
-      setIsPlaying(true);
+    if (q.length === 0) return;
+
+    if (profile && (profile.listening_time_used || 0) >= getListeningLimit()) {
+      setIsPlaying(false);
+      return;
     }
+
+    let nextIndex = indexRef.current + 1;
+
+    if (shuffleRef.current) {
+      // Pick random index excluding current if possible
+      nextIndex = Math.floor(Math.random() * q.length);
+      if (nextIndex === indexRef.current && q.length > 1) {
+        nextIndex = (nextIndex + 1) % q.length;
+      }
+    } else if (nextIndex >= q.length) {
+      // Loop back to start if at end
+      nextIndex = 0;
+    }
+
+    setCurrentVideo(q[nextIndex]);
+    setCurrentIndex(nextIndex);
+    indexRef.current = nextIndex;
+    setIsPlaying(true);
   }, []);
 
   const playPrev = useCallback(() => {
@@ -84,6 +153,17 @@ export const PlayerProvider = ({ children }) => {
       indexRef.current = prevIndex;
       setIsPlaying(true);
     }
+  }, []);
+
+  const toggleShuffle = useCallback(() => {
+    setIsShuffle(prev => {
+      shuffleRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
+  const toggleRepeat = useCallback(() => {
+    setIsRepeat(prev => !prev);
   }, []);
 
   const pauseVideo = useCallback(() => setIsPlaying(false), []);
@@ -110,6 +190,12 @@ export const PlayerProvider = ({ children }) => {
         playNext,
         playPrev,
         queue,
+        isShuffle,
+        isRepeat,
+        toggleShuffle,
+        toggleRepeat,
+        favIds,
+        toggleFavorite,
         hasHold: queue.length > 0
       }}
     >

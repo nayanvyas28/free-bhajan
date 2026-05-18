@@ -25,7 +25,9 @@ import {
   ChevronRight,
   Music,
   Flame,
-  BookOpen
+  BookOpen,
+  Sparkles,
+  Gift
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -47,18 +49,20 @@ export default function Sidebar() {
     }).start();
   }, [isOpen]);
 
-  const handleNav = (screen) => {
+  const handleNav = (screen, params = {}) => {
     closeSidebar();
-    navigation.navigate(screen);
+    navigation.navigate(screen, params);
   };
 
   const menuItems = [
-    { id: 'home', title: t('home') || 'Home', icon: Home, screen: 'MainTabs' },
+    { id: 'home', title: t('home') || 'Home', icon: Home, screen: 'MainTabs', params: { screen: 'HomeTab', params: { screen: 'Home' } } },
     { id: 'liked', title: t('liked') || 'Liked Content', icon: Heart, screen: 'Favorites' },
-    { id: 'calendar', title: t('calendar') || 'Spiritual Calendar', icon: Calendar, screen: 'Calendar' },
-    { id: 'katha', title: 'Vrat Katha', icon: BookOpen, screen: 'Katha' },
-    { id: 'aarti', title: 'MantraPuja Aarti', icon: Flame, screen: 'Aarti' },
+    { id: 'calendar', title: t('calendar') || 'Spiritual Calendar', icon: Calendar, screen: 'MainTabs', params: { screen: 'HomeTab', params: { screen: 'Calendar' } } },
+    { id: 'katha', title: 'Vrat Katha', icon: BookOpen, screen: 'Katha', params: { kathaId: 'latest' } },
+    { id: 'solutions', title: 'Solutions (Upay)', icon: Sparkles, screen: 'MainTabs', params: { screen: 'Solution' } },
+    { id: 'aarti', title: 'MantraPuja Aarti', icon: Flame, screen: 'MainTabs', params: { screen: 'Aarti' } },
     { id: 'audio', title: 'Audio Bhajans', icon: Music, screen: 'Audio' },
+    { id: 'referral', title: 'Refer & Earn', icon: Gift, screen: 'Referral' },
   ];
 
   const secondaryItems = [
@@ -79,7 +83,7 @@ export default function Sidebar() {
   if (!isOpen && anim._value === 0) return null;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents={isOpen ? 'auto' : 'none'}>
+    <View style={[StyleSheet.absoluteFill, { zIndex: 9999, elevation: 9999 }]} pointerEvents={isOpen ? 'auto' : 'none'}>
       {/* Backdrop */}
       <TouchableWithoutFeedback onPress={closeSidebar}>
         <Animated.View style={[styles.backdrop, { opacity }]}>
@@ -126,12 +130,14 @@ export default function Sidebar() {
             <TouchableOpacity 
               key={item.id} 
               style={styles.menuItem}
-              onPress={() => handleNav(item.screen)}
+              onPress={() => handleNav(item.screen, item.params)}
             >
               <View style={[styles.iconContainer, { backgroundColor: theme.primary + '15' }]}>
                 <item.icon size={20} color={theme.primary} />
               </View>
-              <Text style={[styles.menuText, { color: theme.text }]}>{item.title}</Text>
+              <Text style={[styles.menuText, { color: theme.text }]}>
+                {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
+              </Text>
               <ChevronRight size={16} color={theme.border} />
             </TouchableOpacity>
           ))}
@@ -148,13 +154,15 @@ export default function Sidebar() {
               <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
                 <item.icon size={20} color={theme.text} />
               </View>
-              <Text style={[styles.menuText, { color: theme.text }]}>{item.title}</Text>
+              <Text style={[styles.menuText, { color: theme.text }]}>
+                {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
         <View style={styles.footer}>
-          <Text style={[styles.version, { color: theme.subtext }]}>v1.0.0 Stable</Text>
+          <Text style={[styles.version, { color: theme.subtext }]}>v1.1.0 Stable</Text>
         </View>
       </Animated.View>
     </View>

@@ -32,9 +32,9 @@ export const getCuratedBhajans = async (category = null, type = null, subType = 
     console.log('Fetching Curated:', { category, type, subType });
     let query = supabase.from('bhajans').select('*').or('is_visible.is.null,is_visible.eq.true').order('created_at', { ascending: false });
     
-    if (category) query = query.eq('category', category);
-    if (type) query = query.eq('type', type);
-    if (subType) query = query.eq('sub_type', subType);
+    if (category) query = query.ilike('category', category);
+    if (type) query = query.ilike('type', type);
+    if (subType) query = query.ilike('sub_type', subType);
 
     const { data, error } = await query;
     if (error) {
@@ -65,6 +65,7 @@ export const getCuratedBhajans = async (category = null, type = null, subType = 
         thumbnail: displayThumb,
         title: item.title,
         description: item.description,
+        lyrics: item.lyrics || item.content || item.description,
         duration: item.duration || 0,
         subType: item.sub_type || 'Bhajan',
         snippet: {
@@ -101,8 +102,8 @@ export const getCategories = async () => {
 export const getSolutions = async (category = null, type = null) => {
   try {
     let query = supabase.from('solutions').select('*').or('is_visible.is.null,is_visible.eq.true').order('created_at', { ascending: false });
-    if (category) query = query.eq('category', category);
-    if (type) query = query.eq('type', type);
+    if (category) query = query.ilike('category', category);
+    if (type) query = query.ilike('type', type);
     const { data, error } = await query;
     if (error) throw error;
     
@@ -143,19 +144,56 @@ export const getKathas = async () => {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return (data || []).map(item => ({
-      ...item,
-      is_katha: true,
-      subType: 'Katha',
-      duration: item.duration || 0,
-      snippet: {
-        title: item.title,
-        description: item.content,
-        thumbnails: { high: { url: item.image_url } }
+    return (data || []).map(item => {
+      const rawUrl = item.url || '';
+      let vId = rawUrl;
+      if (rawUrl.includes('http')) {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = rawUrl.match(regExp);
+        vId = (match && match[2].length === 11) ? match[2] : rawUrl;
       }
-    }));
+
+      const isYt = vId.length === 11;
+
+      return {
+        ...item,
+        id: { videoId: vId },
+        db_id: item.id,
+        url: rawUrl,
+        type: isYt ? 'youtube' : 'video',
+        is_katha: true,
+        subType: 'Katha',
+        thumbnail: item.image_url,
+        duration: item.duration || 0,
+        snippet: {
+          title: item.title,
+          description: item.content || item.description,
+          thumbnails: { 
+            default: { url: item.image_url },
+            medium: { url: item.image_url },
+            high: { url: item.image_url } 
+          },
+          channelTitle: 'Katha'
+        }
+      };
+    });
   } catch (error) {
     console.error('Kathas Fetch Error:', error);
+    return [];
+  }
+};
+
+export const getBanners = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('banners')
+      .select('*')
+      .order('position', { ascending: true });
+    
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Banners Fetch Error:', error);
     return [];
   }
 };
@@ -252,6 +290,10 @@ export const searchBhajans = async (query = 'krishna bhajan', maxResults = 15) =
 
         const displayThumb = item.thumbnail || item.image_url || (vId.length === 11 ? `https://img.youtube.com/vi/${vId}/hqdefault.jpg` : null);
 
+        const isSolution = item.category?.toLowerCase().includes('solution') || 
+                          item.category?.toLowerCase().includes('upay') ||
+                          item.sub_type?.toLowerCase().includes('solution');
+
         return {
           id: { videoId: (item.type === 'youtube' || !item.type) ? (vId.length === 11 ? vId : rawUrl) : item.id?.toString() },
           audioUrl: (item.type === 'audio' || item.type === 'video') ? rawUrl : null,
@@ -260,6 +302,9 @@ export const searchBhajans = async (query = 'krishna bhajan', maxResults = 15) =
           image_url: displayThumb,
           title: item.title,
           description: item.description,
+          category: item.category,
+          subType: item.sub_type || 'Bhajan',
+          is_solution: isSolution,
           snippet: {
             title: item.title,
             description: item.description,
@@ -269,8 +314,45 @@ export const searchBhajans = async (query = 'krishna bhajan', maxResults = 15) =
         };
       });
     }
+    // 2. Search in Kathas Table
+    const lowQuery = query.toLowerCase().trim();
+    const { data: dbKathas, error: kathaError } = await supabase
+      .from('kathas')
+      .select('*')
+      .or(`title.ilike.%${lowQuery}%,content.ilike.%${lowQuery}%`)
+      .limit(10);
 
-    // 2. Search in YouTube API as fallback/extension
+    let formattedKathaResults = [];
+    if (!kathaError && dbKathas) {
+      formattedKathaResults = dbKathas.map(item => {
+        const rawUrl = item.url || '';
+        let vId = rawUrl;
+        if (rawUrl.includes('http')) {
+          const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+          const match = rawUrl.match(regExp);
+          vId = (match && match[2].length === 11) ? match[2] : rawUrl;
+        }
+        const displayThumb = item.image_url || (vId.length === 11 ? `https://img.youtube.com/vi/${vId}/hqdefault.jpg` : null);
+        return {
+          ...item,
+          id: { videoId: vId },
+          url: rawUrl,
+          is_katha: true,
+          subType: 'Katha',
+          thumbnail: displayThumb,
+          snippet: {
+            title: item.title,
+            description: item.content || item.description,
+            thumbnails: { high: { url: displayThumb } },
+            channelTitle: 'Katha'
+          }
+        };
+      });
+    }
+
+    const allDbResults = [...formattedDbResults, ...formattedKathaResults];
+
+    // 3. Search in YouTube API as fallback/extension
     let ytResults = [];
     if (API_KEY !== 'YOUR_YOUTUBE_API_KEY') {
       try {
@@ -287,7 +369,7 @@ export const searchBhajans = async (query = 'krishna bhajan', maxResults = 15) =
       } catch (err) {
         console.log('YT API error:', err.message);
       }
-    } else if (formattedDbResults.length === 0) {
+    } else if (allDbResults.length === 0) {
       ytResults = MOCK_BHAJANS.filter(b => 
         b.snippet.title.toLowerCase().includes(query.toLowerCase())
       );
@@ -295,7 +377,7 @@ export const searchBhajans = async (query = 'krishna bhajan', maxResults = 15) =
 
     // Combine results: Database first, then YouTube
     // Filter duplicates by VideoId
-    const combined = [...formattedDbResults, ...ytResults];
+    const combined = [...allDbResults, ...ytResults];
     const seenIds = new Set();
     return combined.filter(item => {
       const id = item.id?.videoId || item.audioUrl;

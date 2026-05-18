@@ -16,8 +16,10 @@ const Header = ({ customTitle, customSubtitle }) => {
   const navigation = useNavigation();
 
   const getInitials = (name) => {
-    if (!name) return 'U';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+    if (!name || name === 'undefined') return 'U';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
   return (
@@ -33,9 +35,20 @@ const Header = ({ customTitle, customSubtitle }) => {
           <View style={[styles.menuLine, { backgroundColor: theme.primary, width: 20 }]} />
         </TouchableOpacity>
         
-        <View style={{ marginLeft: 4 }}>
-          <Text style={[styles.title, { color: theme.text }]}>{customTitle || 'MantraPuja'}</Text>
-          <Text style={[styles.subtitle, { color: theme.subtext }]}>{customSubtitle || t('spiritualLibrary')}</Text>
+        <View style={{ flex: 1, marginLeft: 4 }}>
+          <Text 
+            style={[styles.title, { color: theme.text }]} 
+            numberOfLines={1} 
+            ellipsizeMode="tail"
+          >
+            {customTitle || 'MantraPuja'}
+          </Text>
+          <Text 
+            style={[styles.subtitle, { color: theme.subtext }]} 
+            numberOfLines={1}
+          >
+            {customSubtitle || t('spiritualLibrary')}
+          </Text>
         </View>
       </View>
 
@@ -65,7 +78,7 @@ const Header = ({ customTitle, customSubtitle }) => {
                 colors={[theme.primary, '#FF9100']}
                 style={styles.profileCircle}
               >
-                <Text style={styles.initials}>{getInitials(profile?.full_name)}</Text>
+                <Text style={styles.initials} numberOfLines={1}>{getInitials(profile?.full_name || profile?.username)}</Text>
               </LinearGradient>
               <View style={[styles.onlineStatus, { backgroundColor: '#10B981' }]} />
             </View>
@@ -86,12 +99,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 15,
     borderBottomWidth: 1,
     zIndex: 10,
   },
-  logoSection: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  logoSection: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 8,
+    flex: 1,
+    marginRight: 5
+  },
   menuHandle: {
     paddingVertical: 10,
     paddingRight: 10,
@@ -103,9 +122,10 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: 'Outfit-Bold',
     letterSpacing: -0.5,
+    flexShrink: 1,
   },
   subtitle: {
     fontSize: 11,
@@ -117,7 +137,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   iconBtn: {
     width: 38,

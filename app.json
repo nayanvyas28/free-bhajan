@@ -2,31 +2,49 @@
   "expo": {
     "name": "MantraPuja Bhajan",
     "slug": "bhajan-app",
-    "version": "1.0.0",
+    "version": "2.0.2",
     "orientation": "portrait",
     "icon": "./assets/mantrapuja_logo.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "splash": {
       "image": "./assets/mantrapuja_logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F0F13"
+      "backgroundColor": "#FFFBF5"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mantrapuja.bhajan",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio"
+        ]
+      }
     },
     "android": {
+      "versionCode": 8,
       "adaptiveIcon": {
         "foregroundImage": "./assets/mantrapuja_logo.png",
-        "backgroundColor": "#0F0F13"
+        "backgroundColor": "#FFFBF5"
       },
       "edgeToEdgeEnabled": true,
-      "package": "mantra.puja.bhajan",
+      "package": "com.mantrapuja.bhajan",
       "usesCleartextTraffic": true,
-      "permissions": ["INTERNET"]
+      "permissions": [
+        "INTERNET",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "WAKE_LOCK",
+        "MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/mantrapuja_logo.png"
-    }
+    },
+    "plugins": [
+      "expo-font",
+      "expo-video",
+      "expo-asset"
+    ]
   }
 }

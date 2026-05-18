@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Activit
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import Header from '../components/Header';
+import ScreenWrapper from '../components/ScreenWrapper';
 import { getSolutions, getCategories } from '../services/youtubeApi';
 import { Lightbulb, PlayCircle, Video, Music, Heart, Search, X } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
@@ -186,92 +187,94 @@ export default function SolutionScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Header title={t('solutionTitle') || 'Spiritual Solutions'} />
-      
-      <View style={styles.searchSection}>
-        <View style={[styles.searchInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Search size={20} color={theme.primary} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={t('searchPlaceholder')}
-            placeholderTextColor={theme.subtext}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <X size={20} color={theme.subtext} />
-            </TouchableOpacity>
-          )}
+    <ScreenWrapper hasTabBar={true}>
+      <View style={[styles.container]}>
+        <Header title={t('solutionTitle') || 'Spiritual Solutions'} />
+        
+        <View style={styles.searchSection}>
+          <View style={[styles.searchInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Search size={20} color={theme.primary} style={styles.searchIcon} />
+            <TextInput
+              style={[styles.searchInput, { color: theme.text }]}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('searchPlaceholder')}
+              placeholderTextColor={theme.subtext}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <X size={20} color={theme.subtext} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-      </View>
-      
-      <View style={styles.typeTabs}>
-        {[
-          { id: 'video', label: t('upayeVideo'), icon: Video },
-          { id: 'audio', label: t('upayeAudio'), icon: Music }
-        ].map(tab => (
-          <TouchableOpacity
-            key={tab.id}
-            onPress={() => {
-              setActiveType(tab.id);
-              setExpandedId(null);
-            }}
-            style={[
-              styles.typeTab,
-              activeType === tab.id && { borderBottomColor: theme.primary, borderBottomWidth: 3 }
-            ]}
-          >
-            <Text style={[
-              styles.typeTabText,
-              { color: theme.subtext },
-              activeType === tab.id && { color: theme.primary, fontFamily: 'Outfit-Black' }
-            ]}>{tab.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      
-      <View style={styles.catWrapper}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catContent}>
-          {categories.map(cat => (
-            <TouchableOpacity 
-              key={cat.id || cat.name} 
-              onPress={() => setActiveCategory(cat.name)}
+        
+        <View style={styles.typeTabs}>
+          {[
+            { id: 'video', label: t('upayeVideo'), icon: Video },
+            { id: 'audio', label: t('upayeAudio'), icon: Music }
+          ].map(tab => (
+            <TouchableOpacity
+              key={tab.id}
+              onPress={() => {
+                setActiveType(tab.id);
+                setExpandedId(null);
+              }}
               style={[
-                styles.catChip, 
-                { backgroundColor: theme.card, borderColor: theme.border },
-                activeCategory === cat.name && { backgroundColor: theme.primary, borderColor: theme.primary }
+                styles.typeTab,
+                activeType === tab.id && { backgroundColor: theme.primary + '20' }
               ]}
             >
               <Text style={[
-                styles.catText, 
+                styles.typeTabText,
                 { color: theme.subtext },
-                activeCategory === cat.name && { color: '#FFF' }
-              ]}>
-                {language === 'hi' && cat.name_hi ? cat.name_hi : t(cat.name)}
-              </Text>
+                activeType === tab.id && { color: theme.primary, fontFamily: 'Outfit-Black' }
+              ]}>{tab.label}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
-      </View>
-
-      {loading ? (
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color={theme.primary} />
         </View>
-      ) : (
-        <FlatList
-          data={filteredSolutions}
-          renderItem={renderSolution}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <Text style={[styles.empty, { color: theme.subtext }]}>{t('noData')}</Text>
-          }
-        />
-      )}
-    </View>
+        
+        <View style={styles.catWrapper}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catContent}>
+            {categories.map(cat => (
+              <TouchableOpacity 
+                key={cat.id || cat.name} 
+                onPress={() => setActiveCategory(cat.name)}
+                style={[
+                  styles.catChip, 
+                  { backgroundColor: theme.card, borderColor: theme.border },
+                  activeCategory === cat.name && { backgroundColor: theme.primary, borderColor: theme.primary }
+                ]}
+              >
+                <Text style={[
+                  styles.catText, 
+                  { color: theme.subtext },
+                  activeCategory === cat.name && { color: '#FFF' }
+                ]}>
+                  {language === 'hi' && cat.name_hi ? cat.name_hi : t(cat.name)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {loading ? (
+          <View style={styles.loader}>
+            <ActivityIndicator size="large" color={theme.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredSolutions}
+            renderItem={renderSolution}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.list}
+            ListEmptyComponent={
+              <Text style={[styles.empty, { color: theme.subtext }]}>{t('noData')}</Text>
+            }
+          />
+        )}
+      </View>
+    </ScreenWrapper>
   );
 }
 
