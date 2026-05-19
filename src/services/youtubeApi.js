@@ -411,3 +411,104 @@ export const searchBhajans = async (query = 'krishna bhajan', maxResults = 15) =
     return [];
   }
 };
+
+export const getBhajanById = async (id) => {
+  try {
+    if (!id) return null;
+    console.log('Fetching Bhajan by ID:', id);
+    
+    const isNumeric = /^\d+$/.test(id);
+    let query = supabase.from('bhajans').select('*');
+    if (isNumeric) {
+      query = query.eq('id', parseInt(id));
+    } else {
+      query = query.or(`id.eq.${id},url.ilike.%${id}%`);
+    }
+    
+    const { data: bhajan, error } = await query.maybeSingle();
+    if (!error && bhajan) {
+      const item = bhajan;
+      const rawUrl = item.url ? item.url.trim() : '';
+      let vId = rawUrl;
+      if ((item.type === 'youtube' || !item.type) && rawUrl.includes('http')) {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = rawUrl.match(regExp);
+        vId = (match && match[2].length === 11) ? match[2] : rawUrl;
+      }
+      const displayThumb = item.thumbnail || item.image_url || (vId.length === 11 ? `https://img.youtube.com/vi/${vId}/hqdefault.jpg` : null);
+      return {
+        id: { videoId: (item.type === 'youtube' || !item.type) ? (vId.length === 11 ? vId : rawUrl) : item.id?.toString() },
+        audioUrl: (item.type === 'audio' || item.type === 'video') ? rawUrl : null,
+        url: rawUrl,
+        type: item.type || (rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be') ? 'youtube' : 'video'),
+        thumbnail: displayThumb,
+        title: item.title,
+        description: item.description,
+        lyrics: item.lyrics || item.content || item.description,
+        duration: item.duration || 0,
+        subType: item.sub_type || 'Bhajan',
+        snippet: {
+          title: item.title,
+          description: item.description,
+          thumbnails: { high: { url: displayThumb } },
+          channelTitle: item.category || 'Bhajan'
+        }
+      };
+    }
+
+    let kathaQuery = supabase.from('kathas').select('*');
+    if (isNumeric) {
+      kathaQuery = kathaQuery.eq('id', parseInt(id));
+    } else {
+      kathaQuery = kathaQuery.or(`id.eq.${id},url.ilike.%${id}%`);
+    }
+    const { data: katha, error: kathaErr } = await kathaQuery.maybeSingle();
+    if (!kathaErr && katha) {
+      const item = katha;
+      const rawUrl = item.url || '';
+      let vId = rawUrl;
+      if (rawUrl.includes('http')) {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = rawUrl.match(regExp);
+        vId = (match && match[2].length === 11) ? match[2] : rawUrl;
+      }
+      const displayThumb = item.image_url || (vId.length === 11 ? `https://img.youtube.com/vi/${vId}/hqdefault.jpg` : null);
+      return {
+        ...item,
+        id: { videoId: vId },
+        db_id: item.id,
+        url: rawUrl,
+        type: vId.length === 11 ? 'youtube' : 'video',
+        is_katha: true,
+        subType: 'Katha',
+        thumbnail: displayThumb,
+        duration: item.duration || 0,
+        snippet: {
+          title: item.title,
+          description: item.content || item.description,
+          thumbnails: { high: { url: displayThumb } },
+          channelTitle: 'Katha'
+        }
+      };
+    }
+    
+    if (id.length === 11) {
+      return {
+        id: { videoId: id },
+        type: 'youtube',
+        thumbnail: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+        title: 'Shared Divine Content',
+        description: 'MantraPuja Bhajans',
+        snippet: {
+          title: 'Shared Divine Content',
+          description: 'MantraPuja Bhajans',
+          thumbnails: { high: { url: `https://img.youtube.com/vi/${id}/hqdefault.jpg` } },
+          channelTitle: 'Bhajan'
+        }
+      };
+    }
+  } catch (err) {
+    console.error('getBhajanById error:', err);
+  }
+  return null;
+};

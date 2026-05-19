@@ -43,8 +43,46 @@ export default function LoginScreen({ navigation }) {
   }, [timer]);
 
   useEffect(() => {
-    checkClipboardForReferral();
+    const initReferrals = async () => {
+      const referrerFound = await checkInstallReferrerForReferral();
+      if (!referrerFound) {
+        await checkClipboardForReferral();
+      }
+    };
+    initReferrals();
   }, []);
+
+  const checkInstallReferrerForReferral = async () => {
+    try {
+      let InstallReferrer = null;
+      try {
+        InstallReferrer = require('react-native-install-referrer').default || require('react-native-install-referrer');
+      } catch (e) {
+        console.log('[AUTH] react-native-install-referrer module not available');
+      }
+
+      if (InstallReferrer && typeof InstallReferrer.getReferrer === 'function') {
+        const referrerData = await InstallReferrer.getReferrer();
+        console.log('[AUTH] Install Referrer response:', referrerData);
+        if (referrerData && referrerData.installReferrer) {
+          const referrerStr = referrerData.installReferrer;
+          const match = referrerStr.match(/utm_source=([A-Z0-9]{6})/i) || 
+                        referrerStr.match(/referrer=([A-Z0-9]{6})/i) ||
+                        referrerStr.match(/code=([A-Z0-9]{6})/i) ||
+                        referrerStr.match(/\b([A-Z0-9]{6})\b/i);
+          if (match && match[1]) {
+            const detectedCode = match[1].toUpperCase();
+            setReferralCode(detectedCode);
+            console.log('[AUTH] Auto-filled referral code from Install Referrer:', detectedCode);
+            return true;
+          }
+        }
+      }
+    } catch (e) {
+      console.log('[AUTH] Install Referrer check failed:', e);
+    }
+    return false;
+  };
 
   const checkClipboardForReferral = async () => {
     try {
@@ -52,15 +90,17 @@ export default function LoginScreen({ navigation }) {
       if (text) {
         // Find 6-char alphanumeric code in clipboard text
         const match = text.match(/(?:code:|REF-|refer\/)([A-Z0-9]{6})/i) || text.match(/\b([A-Z0-9]{6})\b/i);
-        if (match && match[1] && !referralCode) {
+        if (match && match[1]) {
           const detectedCode = match[1].toUpperCase();
           setReferralCode(detectedCode);
           console.log('[AUTH] Auto-filled referral code from clipboard:', detectedCode);
+          return true;
         }
       }
     } catch (e) {
       console.log('[AUTH] Clipboard check failed:', e);
     }
+    return false;
   };
 
   const handleNext = async () => {

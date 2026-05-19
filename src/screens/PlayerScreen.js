@@ -3,14 +3,20 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share } from 'rea
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { Share2, ArrowLeft } from 'lucide-react-native';
 
+import { useAuth } from '../context/AuthContext';
+import { CONFIG } from '../constants/Config';
+
 export default function PlayerScreen({ route, navigation }) {
   const { videoId, video } = route.params;
   const { snippet } = video;
+  const { profile } = useAuth();
 
   const onShare = async () => {
     try {
+      const refCode = profile?.referral_code || 'NONE';
+      const playStoreUrlWithReferrer = `${CONFIG.PLAY_STORE_URL}&referrer=ref_${refCode}_id_${videoId}`;
       await Share.share({
-        message: `Listen to this beautiful Bhajan: ${snippet.title}\nhttps://www.youtube.com/watch?v=${videoId}`,
+        message: `🙏 Jai Shree Ram! 🙏\n\nListen to "${snippet.title}" on *${CONFIG.APP_NAME}* app.\n\n📲 Download / Open here:\n${playStoreUrlWithReferrer}`,
       });
     } catch (error) {
       console.error('Error sharing:', error);

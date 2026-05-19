@@ -18,10 +18,16 @@ export default function ReferralScreen({ navigation }) {
 
   const onShare = async () => {
     try {
+      const refCode = profile?.referral_code || '';
       let shareMsg = referralSettings?.referral_share_message || `🙏 Jai Shree Ram! 🙏\n\nI am listening to beautiful bhajans on *${CONFIG.APP_NAME}*.\n\nUse my Referral Code: {CODE}\n\n📲 Download here: ${CONFIG.PLAY_STORE_URL}`;
       
       // Replace placeholder with actual code
-      shareMsg = shareMsg.replace('{CODE}', profile?.referral_code || '');
+      shareMsg = shareMsg.replace('{CODE}', refCode);
+      
+      // Append referrer to Play Store URL
+      if (refCode) {
+        shareMsg = shareMsg.replace(CONFIG.PLAY_STORE_URL, `${CONFIG.PLAY_STORE_URL}&referrer=${refCode}`);
+      }
       
       await Share.share({ message: shareMsg });
     } catch (error) {}

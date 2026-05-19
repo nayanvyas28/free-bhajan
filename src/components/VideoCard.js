@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Sha
 import { Play, Heart, Music, Image as ImageIcon, Share2 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { CONFIG } from '../constants/Config';
@@ -10,6 +11,7 @@ import { CONFIG } from '../constants/Config';
 const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
   const { theme } = useTheme();
   const { t } = useLanguage();
+  const { profile } = useAuth();
   const [imgError, setImgError] = useState(false);
   const [loading, setLoading] = useState(true);
   
@@ -23,9 +25,11 @@ const VideoCard = ({ video, isFav, onFavorite, onPress }) => {
   
   const onShare = async () => {
     try {
-      const shareUrl = video.type === 'youtube' ? `https://youtube.com/watch?v=${video.id?.videoId || video.id}` : (video.url || video.audioUrl);
+      const refCode = profile?.referral_code || 'NONE';
+      const bhajanId = video.id?.videoId || video.id || '';
+      const playStoreUrlWithReferrer = `${CONFIG.PLAY_STORE_URL}&referrer=ref_${refCode}_id_${bhajanId}`;
       const result = await Share.share({
-        message: `🙏 Jai Shree Ram! 🙏\n\nListen to this beautiful Bhajan: "${title}"\n\n🎵 Listen here: ${shareUrl}\n\n📲 Download *${CONFIG.APP_NAME}* app for more Bhajans, Mantras & Panchang:\n${CONFIG.PLAY_STORE_URL}`,
+        message: `🙏 Jai Shree Ram! 🙏\n\nListen to "${title}" on *${CONFIG.APP_NAME}* app.\n\n📲 Download / Open here:\n${playStoreUrlWithReferrer}`,
       });
     } catch (error) {
       console.log(error.message);

@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext';
 import { Alert } from 'react-native';
 import { searchBhajans, getCuratedBhajans, getSolutions, getKathas } from '../services/youtubeApi';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PlayerContext = createContext();
 
@@ -33,6 +34,56 @@ export const PlayerProvider = ({ children }) => {
   useEffect(() => {
     loadFavorites();
   }, []);
+
+  useEffect(() => {
+    const checkSharedBhajanReferrer = async () => {
+      try {
+        let InstallReferrer = null;
+        try {
+          InstallReferrer = require('react-native-install-referrer').default || require('react-native-install-referrer');
+        } catch (e) {
+          console.log('[REFERRER-PLAY] Module not available');
+        }
+
+        if (InstallReferrer && typeof InstallReferrer.getReferrer === 'function') {
+          const referrerData = await InstallReferrer.getReferrer();
+          console.log('[REFERRER-PLAY] Install Referrer response:', referrerData);
+          if (referrerData && referrerData.installReferrer) {
+            const referrerStr = referrerData.installReferrer;
+            const idMatch = referrerStr.match(/id_([A-Za-z0-9_-]+)/i);
+            if (idMatch && idMatch[1]) {
+              const sharedBhajanId = idMatch[1];
+              console.log('[REFERRER-PLAY] Found shared bhajan ID:', sharedBhajanId);
+              
+              const playedKey = `@shared_bhajan_played_${sharedBhajanId}`;
+              const alreadyPlayed = await AsyncStorage.getItem(playedKey);
+              if (!alreadyPlayed) {
+                await AsyncStorage.setItem(playedKey, 'true');
+                const { getBhajanById } = require('../services/youtubeApi');
+                const bhajanObj = await getBhajanById(sharedBhajanId);
+                if (bhajanObj) {
+                  console.log('[REFERRER-PLAY] Auto-playing shared bhajan:', bhajanObj.title);
+                  // Allow component mounting to settle before triggering
+                  setTimeout(() => {
+                    playVideo(bhajanObj);
+                  }, 1500);
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.log('[REFERRER-PLAY] Error checking shared bhajan:', err);
+      }
+    };
+
+    // Delay checking slightly to ensure player state is initialized
+    const timer = setTimeout(() => {
+      checkSharedBhajanReferrer();
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [profile, playVideo]);
 
   const toggleFavorite = useCallback(async (video) => {
     if (!video) return;

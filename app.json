@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mantrapuja.bhajan",
+      "bundleIdentifier": "mantra.puja.bhajan",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
@@ -28,7 +28,7 @@
         "backgroundColor": "#FFFBF5"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.mantrapuja.bhajan",
+      "package": "mantra.puja.bhajan",
       "usesCleartextTraffic": true,
       "permissions": [
         "INTERNET",

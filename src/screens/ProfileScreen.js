@@ -214,8 +214,10 @@ export default function ProfileScreen({ navigation }) {
             style={[styles.menuItem, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 12 }]}
             onPress={async () => {
               try {
+                const refCode = profile?.referral_code || '';
+                const shareUrl = refCode ? `${CONFIG.PLAY_STORE_URL}&referrer=${refCode}` : CONFIG.PLAY_STORE_URL;
                 await Share.share({
-                  message: `🙏 Jai Shree Ram! 🙏\n\nMain *${CONFIG.APP_NAME}* app use kar raha hoon Bhajans, Mantras aur Daily Panchang ke liye. Aap bhi download karein:\n\n${CONFIG.PLAY_STORE_URL}`,
+                  message: `🙏 Jai Shree Ram! 🙏\n\nMain *${CONFIG.APP_NAME}* app use kar raha hoon Bhajans, Mantras aur Daily Panchang ke liye. Aap bhi download karein:\n\n${shareUrl}`,
                 });
               } catch (e) {}
             }}

@@ -1109,9 +1109,11 @@ export default function GlobalPlayer() {
                     <TouchableOpacity 
                       onPress={async () => {
                         try {
-                          const shareUrl = isYoutube ? `https://youtube.com/watch?v=${currentVideo.id?.videoId || currentVideo.id}` : (currentVideo.url || currentVideo.audioUrl);
+                          const refCode = profile?.referral_code || 'NONE';
+                          const bhajanId = currentVideo.id?.videoId || currentVideo.id || '';
+                          const playStoreUrlWithReferrer = `${CONFIG.PLAY_STORE_URL}&referrer=ref_${refCode}_id_${bhajanId}`;
                           await Share.share({
-                            message: `🙏 Jai Shree Ram! 🙏\n\nListen to "${title}"\n\n🎵 Listen here: ${shareUrl}\n\n📲 Download *${CONFIG.APP_NAME}* for more:\n${CONFIG.PLAY_STORE_URL}`,
+                            message: `🙏 Jai Shree Ram! 🙏\n\nListen to "${title}" on *${CONFIG.APP_NAME}* app.\n\n📲 Download / Open here:\n${playStoreUrlWithReferrer}`,
                           });
                         } catch (e) {}
                       }}
@@ -1218,7 +1220,6 @@ export default function GlobalPlayer() {
                     <View style={styles.overlayMain}>
                       <View style={styles.mainControlGroup}>
                         <TouchableOpacity onPress={playPrev} style={styles.overlaySideBtn}><SkipBack size={30} color="#FFF" fill="#FFF" /></TouchableOpacity>
-                        <TouchableOpacity onPress={() => seek(-10)} style={styles.seekBtn}><Text style={styles.seekText}>-10s</Text></TouchableOpacity>
                       </View>
                       
                       <TouchableOpacity onPress={isPlaying ? pauseVideo : resumeVideo} style={styles.overlayPlay}>
@@ -1226,7 +1227,6 @@ export default function GlobalPlayer() {
                       </TouchableOpacity>
 
                       <View style={styles.mainControlGroup}>
-                        <TouchableOpacity onPress={() => seek(10)} style={styles.seekBtn}><Text style={styles.seekText}>+10s</Text></TouchableOpacity>
                         <TouchableOpacity onPress={playNext} style={styles.overlaySideBtn}><SkipForward size={30} color="#FFF" fill="#FFF" /></TouchableOpacity>
                       </View>
                     </View>
@@ -1280,9 +1280,11 @@ export default function GlobalPlayer() {
                     <TouchableOpacity 
                       onPress={async () => {
                         try {
-                          const shareUrl = isYoutube ? `https://youtube.com/watch?v=${currentVideo.id?.videoId || currentVideo.id}` : (currentVideo.url || currentVideo.audioUrl);
+                          const refCode = profile?.referral_code || 'NONE';
+                          const bhajanId = currentVideo.id?.videoId || currentVideo.id || '';
+                          const playStoreUrlWithReferrer = `${CONFIG.PLAY_STORE_URL}&referrer=ref_${refCode}_id_${bhajanId}`;
                           await Share.share({
-                            message: `🙏 Jai Shree Ram! 🙏\n\nListen to "${title}"\n\n🎵 Listen here: ${shareUrl}\n\n📲 Download *${CONFIG.APP_NAME}* for more:\n${CONFIG.PLAY_STORE_URL}`,
+                            message: `🙏 Jai Shree Ram! 🙏\n\nListen to "${title}" on *${CONFIG.APP_NAME}* app.\n\n📲 Download / Open here:\n${playStoreUrlWithReferrer}`,
                           });
                         } catch (e) {}
                       }}
@@ -1410,8 +1412,10 @@ export default function GlobalPlayer() {
                     <TouchableOpacity 
                       style={[styles.referBtn, { backgroundColor: theme.primary }]}
                       onPress={async () => {
+                        const refCode = profile?.referral_code || 'NONE';
                         let shareMsg = referralSettings?.referral_share_message || `🙏 Jai Shree Ram! 🙏\n\nI am listening to beautiful bhajans on *${CONFIG.APP_NAME}*.\n\nUse my Referral Code: {CODE}\n\n📲 Download here: ${CONFIG.PLAY_STORE_URL}`;
-                        shareMsg = shareMsg.replace('{CODE}', profile?.referral_code || '');
+                        shareMsg = shareMsg.replace('{CODE}', refCode);
+                        shareMsg = shareMsg.replace(CONFIG.PLAY_STORE_URL, `${CONFIG.PLAY_STORE_URL}&referrer=ref_${refCode}`);
                         await Share.share({ message: shareMsg });
                       }}
                     >
