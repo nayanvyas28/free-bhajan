@@ -126,11 +126,31 @@ export const getDailyQuote = async () => {
       .from('quotes')
       .select('*')
       .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1);
+      .order('created_at', { ascending: false });
     
     if (error) throw error;
-    return data && data.length > 0 ? data[0] : null;
+    if (!data || data.length === 0) return null;
+
+    // 1. Specific Override: If Admin added a new quote TODAY, show it!
+    const newestQuote = data[0];
+    const quoteDate = new Date(newestQuote.created_at);
+    const today = new Date();
+    
+    const isToday = quoteDate.getDate() === today.getDate() &&
+                    quoteDate.getMonth() === today.getMonth() &&
+                    quoteDate.getFullYear() === today.getFullYear();
+    
+    if (isToday) {
+      return newestQuote;
+    }
+
+    // 2. Auto Run: Rotate through all active quotes in the DB based on the day of the year
+    const start = new Date(today.getFullYear(), 0, 0);
+    const diff = (today - start) + ((start.getTimezoneOffset() - today.getTimezoneOffset()) * 60 * 1000);
+    const oneDay = 1000 * 60 * 60 * 24;
+    const dayOfYear = Math.floor(diff / oneDay);
+
+    return data[dayOfYear % data.length];
   } catch (error) {
     console.error('Daily Quote Error:', error);
     return null;

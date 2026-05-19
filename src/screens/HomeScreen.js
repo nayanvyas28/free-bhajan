@@ -74,7 +74,18 @@ const HomeHeader = memo(({
   activeCategory, activeSubType, categories, 
   handleCategoryPress, handleSubTypePress, dailyQuote, DIVINE_QUOTES
 }) => {
-  const quoteData = dailyQuote || DIVINE_QUOTES[0];
+  // Calculate the day of the year to pick a different fallback quote every day
+  const getDayOfYear = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 0);
+    const diff = (now - start) + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
+    const oneDay = 1000 * 60 * 60 * 24;
+    return Math.floor(diff / oneDay);
+  };
+
+  const fallbackIndex = getDayOfYear() % DIVINE_QUOTES.length;
+  const quoteData = dailyQuote || DIVINE_QUOTES[fallbackIndex];
+  
   const displayQuote = {
     text: language === 'hi' ? quoteData.text_hi : quoteData.text_en,
     author: language === 'hi' ? quoteData.author_hi : quoteData.author_en
