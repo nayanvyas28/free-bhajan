@@ -97,7 +97,12 @@ export default function AddBhajan() {
       if (error) throw error;
       
       alert('Content added successfully!');
-      setFormData(prev => ({ ...prev, title: '', url: '', thumbnail: '', description: '' }));
+      setFormData(prev => ({ ...prev, title: '', url: '', thumbnail: '', description: '', duration: 0 }));
+      setSelectedFile(null);
+      setUploadProgress(0);
+      
+      // Force page refresh after successful upload
+      window.location.reload();
     } catch (error) {
       alert('Error: ' + error.message);
     } finally {
