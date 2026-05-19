@@ -36,31 +36,40 @@ export const AuthProvider = ({ children }) => {
   };
 
   const checkUser = async () => {
-    const savedProfile = await AsyncStorage.getItem('@user_profile');
-    if (savedProfile) {
-      let p = JSON.parse(savedProfile);
-      
-      // Daily Reset Logic
-      const lastUpdate = new Date(p.updated_at || new Date());
-      const today = new Date();
-      if (lastUpdate.toDateString() !== today.toDateString()) {
-        console.log('[AUTH] New day detected, resetting listening time');
-        p.listening_time_used = 0;
-        p.updated_at = today;
-        await supabase.from('profiles').update({ listening_time_used: 0 }).eq('id', p.id);
-        await AsyncStorage.setItem('@user_profile', JSON.stringify(p));
+    try {
+      const savedProfile = await AsyncStorage.getItem('@user_profile');
+      if (savedProfile) {
+        let p = JSON.parse(savedProfile);
+        if (p && p.id) {
+          // Daily Reset Logic
+          const lastUpdate = new Date(p.updated_at || new Date());
+          const today = new Date();
+          if (lastUpdate.toDateString() !== today.toDateString()) {
+            console.log('[AUTH] New day detected, resetting listening time');
+            p.listening_time_used = 0;
+            p.updated_at = today;
+            await supabase.from('profiles').update({ listening_time_used: 0 }).eq('id', p.id);
+            await AsyncStorage.setItem('@user_profile', JSON.stringify(p));
+          }
+          
+          // Auto-generate referral code if missing (for existing users)
+          if (!p.referral_code) {
+            const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            p.referral_code = newCode;
+            await supabase.from('profiles').update({ referral_code: newCode }).eq('id', p.id);
+            await AsyncStorage.setItem('@user_profile', JSON.stringify(p));
+          }
+          
+          setProfile(p);
+          setUser({ id: p.id });
+        } else {
+          await AsyncStorage.removeItem('@user_profile');
+          setProfile(null);
+          setUser(null);
+        }
       }
-      
-      // Auto-generate referral code if missing (for existing users)
-      if (!p.referral_code) {
-        const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-        p.referral_code = newCode;
-        await supabase.from('profiles').update({ referral_code: newCode }).eq('id', p.id);
-        await AsyncStorage.setItem('@user_profile', JSON.stringify(p));
-      }
-      
-      setProfile(p);
-      setUser({ id: p.id });
+    } catch (err) {
+      console.log('[AUTH] checkUser failed:', err);
     }
     setLoading(false);
   };
@@ -249,7 +258,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const getListeningLimit = () => {
-    if (!profile) return 0;
+    if (!profile) return 10;
     
     const config = referralSettings || {
       base_minutes: 30,
@@ -299,7 +308,7 @@ export const AuthProvider = ({ children }) => {
         getListeningLimit,
         checkReferralCode,
         referralSettings,
-        isAuthenticated: !!profile
+        isAuthenticated: !!profile && !!profile.id
       }}
     >
       {children}

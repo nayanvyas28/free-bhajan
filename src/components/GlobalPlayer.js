@@ -16,6 +16,7 @@ import { useAuth } from '../context/AuthContext';
 import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 import { useBanners } from '../context/BannerContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { height, width } = Dimensions.get('window');
 
@@ -45,7 +46,7 @@ export default function GlobalPlayer() {
     favIds,
     toggleFavorite
   } = usePlayer();
-  const { profile, getListeningLimit, updateProfile, referralSettings } = useAuth();
+  const { profile, getListeningLimit, updateProfile, referralSettings, isAuthenticated } = useAuth();
   const navigation = useNavigation();
   const { getBannersByPosition } = useBanners();
   const bottomBanners = getBannersByPosition('bottom') || [];
@@ -55,6 +56,15 @@ export default function GlobalPlayer() {
   const bottomOffset = hasBottomBanner ? (tabHeight + 60) : tabHeight;
 
   const isFav = currentVideo && favIds.includes(currentVideo.id?.videoId || currentVideo.id);
+
+  const handleToggleFavorite = () => {
+    if (!isAuthenticated) {
+      setIsExpanded(false); // Optionally close player
+      navigation.navigate('Login');
+      return;
+    }
+    toggleFavorite(currentVideo);
+  };
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -204,24 +214,82 @@ export default function GlobalPlayer() {
 
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
+  // Reset limit tracking when authentication state changes
+  useEffect(() => {
+    setListeningSeconds(0);
+    setIsLimitReached(false);
+  }, [profile?.id]);
+
+  // Load guest listening time on mount or when guest state becomes active
+  useEffect(() => {
+    const loadGuestTime = async () => {
+      if (!isAuthenticated) {
+        try {
+          const savedData = await AsyncStorage.getItem('@guest_listening_data');
+          if (savedData) {
+            const { date, seconds } = JSON.parse(savedData);
+            const today = new Date().toDateString();
+            if (date === today) {
+              setListeningSeconds(seconds);
+              const totalUsed = seconds / 60;
+              if (totalUsed >= listeningLimit) {
+                setIsLimitReached(true);
+                setIsPopupDismissed(false);
+              }
+            } else {
+              // New day, reset guest time
+              await AsyncStorage.removeItem('@guest_listening_data');
+              setListeningSeconds(0);
+              setIsLimitReached(false);
+            }
+          }
+        } catch (e) {
+          console.log('Error loading guest listening time:', e);
+        }
+      }
+    };
+    loadGuestTime();
+  }, [isAuthenticated, listeningLimit]);
+
+  // Persist guest listening time to AsyncStorage
+  useEffect(() => {
+    const persistGuestTime = async () => {
+      if (!isAuthenticated && listeningSeconds > 0) {
+        try {
+          const today = new Date().toDateString();
+          await AsyncStorage.setItem('@guest_listening_data', JSON.stringify({
+            date: today,
+            seconds: listeningSeconds
+          }));
+        } catch (e) {
+          console.log('Error saving guest listening time:', e);
+        }
+      }
+    };
+
+    if (listeningSeconds % 5 === 0 || isLimitReached) {
+      persistGuestTime();
+    }
+  }, [listeningSeconds, isAuthenticated, isLimitReached]);
+
   // REFERRAL SYSTEM: Track listening time and enforce limits
   useEffect(() => {
-    if (isPlaying && !isLimitReached && profile) {
+    if (isPlaying && !isLimitReached) {
       const interval = setInterval(() => {
         setListeningSeconds(prev => prev + 1);
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [isPlaying, isLimitReached, profile]);
+  }, [isPlaying, isLimitReached]);
 
   useEffect(() => {
     const totalUsed = (profile?.listening_time_used || 0) + (listeningSeconds / 60);
-    if (profile && totalUsed >= listeningLimit && !isLimitReached) {
+    if (totalUsed >= listeningLimit && !isLimitReached) {
       setIsLimitReached(true);
       setIsPopupDismissed(false); 
       if (isPlaying) pauseVideo();
     }
-  }, [listeningSeconds, listeningLimit]);
+  }, [listeningSeconds, listeningLimit, profile]);
 
   // Re-show popup if user tries to play while over limit
   useEffect(() => {
@@ -231,15 +299,15 @@ export default function GlobalPlayer() {
     }
   }, [isPlaying, isLimitReached]);
 
-  // Sync listening time to DB every 60 seconds
+  // Sync listening time to DB every 60 seconds (only for authenticated users)
   useEffect(() => {
-    if (listeningSeconds >= 60) {
+    if (isAuthenticated && listeningSeconds >= 60) {
       const minutesToAdd = Math.floor(listeningSeconds / 60);
       const newTotal = (profile?.listening_time_used || 0) + minutesToAdd;
       updateProfile({ listening_time_used: newTotal });
       setListeningSeconds(prev => prev % 60);
     }
-  }, [listeningSeconds]);
+  }, [listeningSeconds, isAuthenticated]);
 
   const playBellSound = async () => {
     try {
@@ -680,7 +748,7 @@ export default function GlobalPlayer() {
   const timerEmoji = listeningLimit === Infinity ? '✨' : (remainingMins > (listeningLimit / 2) ? '😇' : (remainingMins > (listeningLimit / 5) ? '⏳' : '🚨'));
 
   const renderTimerInfo = () => {
-    if (!showTimerInfo || !profile) return null;
+    if (!showTimerInfo) return null;
     return (
       <Modal visible={true} transparent animationType="fade">
         <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill}>
@@ -711,23 +779,48 @@ export default function GlobalPlayer() {
                 Aapka daily listening time (Darshan Limit) limited hai. Lekin chinta na karein! Aap is limit ko badha sakte hain.
               </Text>
 
-              <View style={[styles.referralPromoBox, { backgroundColor: 'rgba(255,193,7,0.05)', borderColor: 'rgba(255,193,7,0.2)' }]}>
-                <Gift size={24} color={theme.primary} />
-                <Text style={[styles.referralPromoText, { color: theme.text }]}>
-                  Apne doston ko invite karein aur unke har referral par payein **Extra Listening Time!**
-                </Text>
-              </View>
+              {profile ? (
+                <>
+                  <View style={[styles.referralPromoBox, { backgroundColor: 'rgba(255,193,7,0.05)', borderColor: 'rgba(255,193,7,0.2)' }]}>
+                    <Gift size={24} color={theme.primary} />
+                    <Text style={[styles.referralPromoText, { color: theme.text }]}>
+                      Apne doston ko invite karein aur unke har referral par payein **Extra Listening Time!**
+                    </Text>
+                  </View>
 
-              <TouchableOpacity 
-                style={[styles.modalReferralBtn, { backgroundColor: theme.primary }]}
-                onPress={() => {
-                  setShowTimerInfo(false);
-                  navigation.navigate('Referral');
-                }}
-              >
-                <Text style={styles.modalReferralBtnText}>Go to Referral & Get Time</Text>
-                <ArrowRight size={20} color="#000" />
-              </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.modalReferralBtn, { backgroundColor: theme.primary }]}
+                    onPress={() => {
+                      setShowTimerInfo(false);
+                      navigation.navigate('Referral');
+                    }}
+                  >
+                    <Text style={styles.modalReferralBtnText}>Go to Referral & Get Time</Text>
+                    <ArrowRight size={20} color="#000" />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <View style={[styles.referralPromoBox, { backgroundColor: 'rgba(255,193,7,0.05)', borderColor: 'rgba(255,193,7,0.2)' }]}>
+                    <Flame size={24} color={theme.primary} />
+                    <Text style={[styles.referralPromoText, { color: theme.text }]}>
+                      Aapka Guest Trial time sirf 10 minute hai. Apna phone number verify karein aur aur zyada time payein!
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity 
+                    style={[styles.modalReferralBtn, { backgroundColor: theme.primary }]}
+                    onPress={() => {
+                      setShowTimerInfo(false);
+                      setIsExpanded(false);
+                      navigation.navigate('Login');
+                    }}
+                  >
+                    <Text style={styles.modalReferralBtnText}>Login / Create Account</Text>
+                    <ArrowRight size={20} color="#000" />
+                  </TouchableOpacity>
+                </>
+              )}
 
               <TouchableOpacity 
                 onPress={() => setShowTimerInfo(false)}
@@ -743,7 +836,7 @@ export default function GlobalPlayer() {
   };
 
   const renderTimer = () => {
-    if (isExpanded || isTimerDismissed || !profile) return null;
+    if (isExpanded || isTimerDismissed) return null;
     return (
       <View style={styles.timerAbsoluteWrapper} pointerEvents="box-none">
         <Animated.View 
@@ -994,7 +1087,7 @@ export default function GlobalPlayer() {
                     >
                       <Share2 size={22} color={theme.text} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => toggleFavorite(currentVideo)} style={styles.actionCircle}>
+                    <TouchableOpacity onPress={handleToggleFavorite} style={styles.actionCircle}>
                       <Heart size={22} color={isFav ? '#FF3B30' : theme.text} fill={isFav ? '#FF3B30' : 'transparent'} />
                     </TouchableOpacity>
                   </View>
@@ -1149,7 +1242,7 @@ export default function GlobalPlayer() {
                     <Text style={[styles.videoSub, { color: theme.primary }]}>{category}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                    <TouchableOpacity onPress={() => toggleFavorite(currentVideo)} style={styles.actionCircle}>
+                    <TouchableOpacity onPress={handleToggleFavorite} style={styles.actionCircle}>
                       <Heart size={22} color={isFav ? '#FF3B30' : theme.text} fill={isFav ? '#FF3B30' : 'transparent'} />
                     </TouchableOpacity>
                     <TouchableOpacity 
@@ -1263,41 +1356,57 @@ export default function GlobalPlayer() {
                 
                 <Text style={[styles.limitTitle, { color: theme.text }]}>Darshan Limit Reached!</Text>
                 <Text style={[styles.limitText, { color: theme.subtext }]}>
-                  {profile?.referral_count >= (referralSettings?.unlimited_threshold || 10) 
+                  {!isAuthenticated ? "Aapka 10 min ka trial time pura ho gaya hai. Aage sunne ke liye Login karein." : (profile?.referral_count >= (referralSettings?.unlimited_threshold || 10) 
                     ? "Aapne unlimited access unlock kar liya hai! Enjoy Karein."
-                    : `Aapke aaj ke ${listeningLimit} minutes pure ho gaye hain.\n\nUnlock UNLIMITED access by referring ${referralSettings?.unlimited_threshold || 10} friends!`}
+                    : `Aapke aaj ke ${listeningLimit} minutes pure ho gaye hain.\n\nUnlock UNLIMITED access by referring ${referralSettings?.unlimited_threshold || 10} friends!`)}
                 </Text>
 
-                <View style={styles.limitStatsRow}>
-                  <View style={styles.statItem}>
-                    <Text style={[styles.statVal, { color: theme.primary }]}>{profile?.referral_count || 0}</Text>
-                    <Text style={[styles.statLbl, { color: theme.subtext }]}>Done</Text>
-                  </View>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statItem}>
-                    <Text style={[styles.statVal, { color: theme.text }]}>{referralSettings?.unlimited_threshold || 10}</Text>
-                    <Text style={[styles.statLbl, { color: theme.subtext }]}>Target</Text>
-                  </View>
-                </View>
+                {isAuthenticated ? (
+                  <>
+                    <View style={styles.limitStatsRow}>
+                      <View style={styles.statItem}>
+                        <Text style={[styles.statVal, { color: theme.primary }]}>{profile?.referral_count || 0}</Text>
+                        <Text style={[styles.statLbl, { color: theme.subtext }]}>Done</Text>
+                      </View>
+                      <View style={styles.statDivider} />
+                      <View style={styles.statItem}>
+                        <Text style={[styles.statVal, { color: theme.text }]}>{referralSettings?.unlimited_threshold || 10}</Text>
+                        <Text style={[styles.statLbl, { color: theme.subtext }]}>Target</Text>
+                      </View>
+                    </View>
 
-                <TouchableOpacity 
-                  style={[styles.referBtn, { backgroundColor: theme.primary }]}
-                  onPress={async () => {
-                    let shareMsg = referralSettings?.referral_share_message || `🙏 Jai Shree Ram! 🙏\n\nI am listening to beautiful bhajans on *${CONFIG.APP_NAME}*.\n\nUse my Referral Code: {CODE}\n\n📲 Download here: ${CONFIG.PLAY_STORE_URL}`;
-                    shareMsg = shareMsg.replace('{CODE}', profile?.referral_code || '');
-                    await Share.share({ message: shareMsg });
-                  }}
-                >
-                  <Share2 size={20} color="#FFF" />
-                  <Text style={styles.referBtnText}>SHARE & GET UNLIMITED</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.referBtn, { backgroundColor: theme.primary }]}
+                      onPress={async () => {
+                        let shareMsg = referralSettings?.referral_share_message || `🙏 Jai Shree Ram! 🙏\n\nI am listening to beautiful bhajans on *${CONFIG.APP_NAME}*.\n\nUse my Referral Code: {CODE}\n\n📲 Download here: ${CONFIG.PLAY_STORE_URL}`;
+                        shareMsg = shareMsg.replace('{CODE}', profile?.referral_code || '');
+                        await Share.share({ message: shareMsg });
+                      }}
+                    >
+                      <Share2 size={20} color="#FFF" />
+                      <Text style={styles.referBtnText}>SHARE & GET UNLIMITED</Text>
+                    </TouchableOpacity>
 
-                <View style={styles.copyCodeContainer}>
-                  <Text style={[styles.copyCodeLbl, { color: theme.subtext }]}>OR SHARE YOUR CODE</Text>
-                  <Text style={[styles.referCodeBox, { color: theme.primary, borderColor: theme.primary }]}>
-                    {profile?.referral_code}
-                  </Text>
-                </View>
+                    <View style={styles.copyCodeContainer}>
+                      <Text style={[styles.copyCodeLbl, { color: theme.subtext }]}>OR SHARE YOUR CODE</Text>
+                      <Text style={[styles.referCodeBox, { color: theme.primary, borderColor: theme.primary }]}>
+                        {profile?.referral_code}
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <TouchableOpacity 
+                    style={[styles.referBtn, { backgroundColor: theme.primary, marginTop: 30 }]}
+                    onPress={() => {
+                      setIsPopupDismissed(true);
+                      setIsExpanded(false);
+                      navigation.navigate('Login');
+                    }}
+                  >
+                    <Text style={styles.referBtnText}>LOGIN TO CONTINUE</Text>
+                    <ArrowRight size={20} color="#FFF" />
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           </Animated.View>

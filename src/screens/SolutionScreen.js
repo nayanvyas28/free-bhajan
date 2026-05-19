@@ -9,10 +9,12 @@ import { Lightbulb, PlayCircle, Video, Music, Heart, Search, X } from 'lucide-re
 import { usePlayer } from '../context/PlayerContext';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
 import { Alert } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 
-export default function SolutionScreen() {
+export default function SolutionScreen({ navigation }) {
   const { theme } = useTheme();
   const { t, language } = useLanguage();
+  const { profile, isAuthenticated } = useAuth();
   const { playVideo } = usePlayer();
   const [solutions, setSolutions] = useState([]);
   const [categories, setCategories] = useState([{ name: 'All', name_hi: 'सभी' }]);
@@ -73,6 +75,10 @@ export default function SolutionScreen() {
   };
 
   const toggleFavorite = async (item) => {
+    if (!isAuthenticated) {
+      navigation.navigate('Login');
+      return;
+    }
     const videoId = item.id?.videoId || item.id;
     const isFav = favIds.includes(videoId);
 

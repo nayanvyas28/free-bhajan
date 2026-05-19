@@ -106,34 +106,36 @@ export default function ProfileScreen({ navigation }) {
           <Text style={[styles.phoneText, { color: theme.text }]}>{profile?.phone_number}</Text>
         </View>
 
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Text style={[styles.label, { color: theme.subtext }]}>{t('fullName')}</Text>
-          <View style={[styles.inputWrapper, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', borderColor: theme.border }]}>
-            <User size={20} color={theme.primary} style={styles.icon} />
-            <TextInput
-              style={[styles.input, { color: theme.text }]}
-              value={name}
-              onChangeText={setName}
-              placeholder={t('yourName')}
-              placeholderTextColor={theme.subtext}
-            />
-          </View>
+        {profile && profile.id && (
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.label, { color: theme.subtext }]}>{t('fullName')}</Text>
+            <View style={[styles.inputWrapper, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', borderColor: theme.border }]}>
+              <User size={20} color={theme.primary} style={styles.icon} />
+              <TextInput
+                style={[styles.input, { color: theme.text }]}
+                value={name}
+                onChangeText={setName}
+                placeholder={t('yourName')}
+                placeholderTextColor={theme.subtext}
+              />
+            </View>
 
-          <TouchableOpacity 
-            style={[styles.saveBtn, { backgroundColor: theme.primary }]}
-            onPress={handleUpdateName}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={isDarkMode ? "#000" : "#FFF"} />
-            ) : (
-              <>
-                <Save size={20} color={isDarkMode ? "#000" : "#FFF"} />
-                <Text style={[styles.saveBtnText, { color: isDarkMode ? "#000" : "#FFF" }]}>{t('saveChanges')}</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity 
+              style={[styles.saveBtn, { backgroundColor: theme.primary }]}
+              onPress={handleUpdateName}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={isDarkMode ? "#000" : "#FFF"} />
+              ) : (
+                <>
+                  <Save size={20} color={isDarkMode ? "#000" : "#FFF"} />
+                  <Text style={[styles.saveBtnText, { color: isDarkMode ? "#000" : "#FFF" }]}>{t('saveChanges')}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.menuContainer}>
           {/* THEME SECTION */}
@@ -243,13 +245,23 @@ export default function ProfileScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity 
-          style={[styles.signOutBtn, { borderColor: 'rgba(255, 59, 48, 0.2)', backgroundColor: 'rgba(255, 59, 48, 0.05)' }]}
-          onPress={handleSignOut}
-        >
-          <LogOut size={20} color="#FF3B30" />
-          <Text style={styles.signOutText}>{t('logout')}</Text>
-        </TouchableOpacity>
+        {profile && profile.id ? (
+          <TouchableOpacity 
+            style={[styles.signOutBtn, { borderColor: 'rgba(255, 59, 48, 0.2)', backgroundColor: 'rgba(255, 59, 48, 0.05)' }]}
+            onPress={handleSignOut}
+          >
+            <LogOut size={20} color="#FF3B30" />
+            <Text style={styles.signOutText}>{t('logout')}</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            style={[styles.signOutBtn, { borderColor: 'rgba(76, 175, 80, 0.2)', backgroundColor: 'rgba(76, 175, 80, 0.05)' }]}
+            onPress={() => navigation.navigate('Login')}
+          >
+            <User size={20} color="#4CAF50" />
+            <Text style={[styles.signOutText, { color: "#4CAF50" }]}>{t('login') || 'Login / Create Account'}</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </ScreenWrapper>
   );

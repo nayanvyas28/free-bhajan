@@ -18,17 +18,19 @@ const ScreenWrapper = ({
   const topBanners = getBannersByPosition('top');
   const bottomBanners = getBannersByPosition('bottom');
 
+  const isTopBannerVisible = showTopBanner && topBanners.length > 0;
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }, style]}>
       {/* Top Banner Carousel - Controlled from Admin */}
-      {showTopBanner && topBanners.length > 0 && (
+      {isTopBannerVisible && (
         <View style={{ paddingTop: insets.top }}>
           <AdBanner banners={topBanners} height={65} noContainer={false} />
         </View>
       )}
 
       {/* Main Screen Content */}
-      <View style={{ flex: 1, paddingTop: !showTopBanner ? insets.top : 0 }}>
+      <View style={{ flex: 1, paddingTop: !isTopBannerVisible ? insets.top : 0 }}>
         {children}
       </View>
 

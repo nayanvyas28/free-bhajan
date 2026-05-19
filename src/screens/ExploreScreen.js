@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions, ActivityIndicator, ScrollView, TextInput, Alert } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,6 +26,7 @@ const DEFAULT_CATEGORIES = [
 export default function ExploreScreen({ navigation }) {
   const { theme } = useTheme();
   const { t, language } = useLanguage();
+  const { profile } = useAuth();
   const { playVideo } = usePlayer();
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [loading, setLoading] = useState(true);
@@ -60,6 +62,10 @@ export default function ExploreScreen({ navigation }) {
   };
 
   const toggleFavorite = async (video) => {
+    if (!profile) {
+      navigation.navigate('Login');
+      return;
+    }
     const videoId = video.id?.videoId || video.id;
     if (favIds.includes(videoId)) {
       await removeFavorite(videoId);

@@ -83,7 +83,7 @@ export default function Sidebar() {
   if (!isOpen && anim._value === 0) return null;
 
   return (
-    <View style={[StyleSheet.absoluteFill, { zIndex: 9999, elevation: 9999 }]} pointerEvents={isOpen ? 'auto' : 'none'}>
+    <View style={[StyleSheet.absoluteFill, { zIndex: 99999, elevation: 99999 }]} pointerEvents={isOpen ? 'auto' : 'none'}>
       {/* Backdrop */}
       <TouchableWithoutFeedback onPress={closeSidebar}>
         <Animated.View style={[styles.backdrop, { opacity }]}>

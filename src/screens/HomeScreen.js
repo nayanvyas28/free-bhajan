@@ -25,6 +25,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSidebar } from '../context/SidebarContext';
 import { useBanners } from '../context/BannerContext';
+import { useAuth } from '../context/AuthContext';
 
 const DEFAULT_CATEGORIES = [
   { name: "All", name_hi: "सभी" },
@@ -156,6 +157,7 @@ export default function HomeScreen({ navigation, route }) {
   const { theme, isDarkMode } = useTheme();
   const { t, language } = useLanguage();
   const { toggleSidebar } = useSidebar();
+  const { profile, isAuthenticated } = useAuth();
   
   const [videos, setVideos] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
@@ -303,6 +305,10 @@ export default function HomeScreen({ navigation, route }) {
   }, [query, activeCategory, activeSubType]);
 
   const toggleFavorite = async (video) => {
+    if (!isAuthenticated) {
+      navigation.navigate('Login');
+      return;
+    }
     const videoId = video.id?.videoId || video.id;
     if (favIds.includes(videoId)) {
       Alert.alert(
@@ -389,7 +395,11 @@ export default function HomeScreen({ navigation, route }) {
           )}
         </View>
 
-        <AdBanner banners={topBanners} />
+        {topBanners && topBanners.length > 0 && (
+          <View style={{ marginVertical: 4 }}>
+            <AdBanner banners={topBanners} />
+          </View>
+        )}
 
         <FlatList
           data={listData}
@@ -458,6 +468,7 @@ const styles = StyleSheet.create({
   },
   searchWrapper: {
     marginTop: 15,
+    marginBottom: 6,
     marginHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -474,8 +485,8 @@ const styles = StyleSheet.create({
   },
   quoteCard: {
     marginHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 15,
+    marginTop: 6,
+    marginBottom: 8,
     padding: 12,
     borderRadius: 20,
     borderWidth: 1,
@@ -513,7 +524,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   filtersWrapper: {
-    paddingVertical: 2,
+    marginTop: 2,
+    marginBottom: 10,
   },
   filterRow: {
     paddingHorizontal: 20,

@@ -8,10 +8,12 @@ import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites
 import { MoreVertical, Music, Heart, Search, X } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function AudioScreen({ navigation }) {
   const { theme } = useTheme();
   const { t } = useLanguage();
+  const { profile, isAuthenticated } = useAuth();
   const { playVideo, currentVideo } = usePlayer();
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +53,10 @@ export default function AudioScreen({ navigation }) {
   };
 
   const toggleFavorite = async (video) => {
+    if (!isAuthenticated) {
+      navigation.navigate('Login');
+      return;
+    }
     const videoId = video.id.videoId || video.id;
     if (favIds.includes(videoId)) {
       Alert.alert(
