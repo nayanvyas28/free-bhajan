@@ -258,15 +258,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   const getListeningLimit = () => {
-    if (!profile) return 10;
-    
     const config = referralSettings || {
+      guest_trial_minutes: 10,
       base_minutes: 30,
       minutes_per_referral: 15,
       max_referral_bonus_minutes: 300,
       unlimited_threshold: 10,
       is_referral_system_enabled: true
     };
+
+    if (!profile) {
+      return config.guest_trial_minutes || 10;
+    }
 
     if (!config.is_referral_system_enabled) return Infinity;
 

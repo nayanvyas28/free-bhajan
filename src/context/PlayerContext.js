@@ -51,15 +51,6 @@ export const PlayerProvider = ({ children }) => {
 
   const playVideo = useCallback(async (video, videoList = []) => {
     if (!video) return;
-
-    if (profile && (profile.listening_time_used || 0) >= getListeningLimit()) {
-      Alert.alert(
-        "Darshan Limit Reached / सुनने की सीमा समाप्त",
-        "Aapki daily listening limit pure ho gayi hai. Naye bhajans sunne ke liye apne dosto ko refer karein aur lifetime unlimited access payein!\n\nYour daily listening limit is complete. Refer friends to get more minutes or unlock unlimited lifetime access!",
-        [{ text: "OK", style: "default" }]
-      );
-      return; // Limit reached, don't play
-    }
     
     // Normalize video object
     const videoId = video.id?.videoId || video.id;

@@ -4,6 +4,7 @@ import { Gift, Save, Settings, Users, Info, Clock } from 'lucide-react';
 
 export default function ManageReferrals() {
   const [config, setConfig] = useState({
+    guest_trial_minutes: 10,
     base_minutes: 30,
     minutes_per_referral: 15,
     max_referral_bonus_minutes: 300,
@@ -100,6 +101,22 @@ export default function ManageReferrals() {
           </div>
 
           <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-black text-slate-400 uppercase tracking-wider mb-3">
+                Guest Trial Time (Minutes)
+              </label>
+              <div className="flex items-center gap-4">
+                <input
+                  type="number"
+                  value={config.guest_trial_minutes || 10}
+                  onChange={(e) => setConfig({ ...config, guest_trial_minutes: parseInt(e.target.value) || 0 })}
+                  className="flex-1 bg-[#0F172A] border border-slate-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-amber-500 outline-none transition-all"
+                />
+                <span className="text-amber-500 font-bold">MINS / TRIAL</span>
+              </div>
+              <p className="text-slate-500 text-xs mt-2 italic">Total listening time allowed for Guest users before forcing Login.</p>
+            </div>
+
             <div>
               <label className="block text-sm font-black text-slate-400 uppercase tracking-wider mb-3">
                 Base Listening Time (Minutes)

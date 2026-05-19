@@ -21,6 +21,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { getCuratedBhajans } from '../services/youtubeApi';
 import { Play, BookOpen, X, Music, Flame, ChevronRight, Search } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 const { width } = Dimensions.get('window');
 
@@ -184,7 +185,8 @@ export default function AartiScreen() {
           onRequestClose={() => setSelectedAarti(null)}
         >
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <View style={[styles.modalContent, { backgroundColor: 'rgba(11, 11, 11, 0.95)', borderColor: theme.border }]}>
               <View style={styles.modalBar} />
               <View style={styles.modalHeader}>
                 <View style={{ flex: 1 }}>
@@ -399,7 +401,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'flex-end',
   },
   modalContent: {

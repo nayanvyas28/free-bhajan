@@ -8,9 +8,9 @@ import {
   Text,
   TouchableOpacity,
   RefreshControl,
-  ScrollView,
-  Alert
+  ScrollView
 } from 'react-native';
+import { useCustomAlert } from '../context/AlertContext';
 import { Search, X, RefreshCcw, Mic, Quote, User, Languages } from 'lucide-react-native';
 import { searchBhajans, getCuratedBhajans, getCategories, getDailyQuote, getKathas, getBanners } from '../services/youtubeApi';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
@@ -73,7 +73,8 @@ const DIVINE_QUOTES = [
 const HomeHeader = memo(({ 
   theme, isDarkMode, t, language, query, setQuery, loadVideos, 
   activeCategory, activeSubType, categories, 
-  handleCategoryPress, handleSubTypePress, dailyQuote, DIVINE_QUOTES
+  handleCategoryPress, handleSubTypePress, dailyQuote, DIVINE_QUOTES,
+  showAlert
 }) => {
   // Calculate the day of the year to pick a different fallback quote every day
   const getDayOfYear = () => {
@@ -158,6 +159,7 @@ export default function HomeScreen({ navigation, route }) {
   const { t, language } = useLanguage();
   const { toggleSidebar } = useSidebar();
   const { profile, isAuthenticated } = useAuth();
+  const { showAlert } = useCustomAlert();
   
   const [videos, setVideos] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
@@ -311,10 +313,11 @@ export default function HomeScreen({ navigation, route }) {
     }
     const videoId = video.id?.videoId || video.id;
     if (favIds.includes(videoId)) {
-      Alert.alert(
-        t('removeFavoriteTitle') || 'Remove Favorite',
-        t('removeFavoriteMessage') || 'Are you sure you want to remove this from your favorites?',
-        [
+      showAlert({
+        title: t('removeFavoriteTitle') || 'Remove Favorite',
+        message: t('removeFavoriteMessage') || 'Are you sure you want to remove this from your favorites?',
+        type: 'warning',
+        buttons: [
           { text: t('cancel') || 'Cancel', style: 'cancel' },
           { 
             text: t('remove') || 'Remove', 
@@ -325,7 +328,7 @@ export default function HomeScreen({ navigation, route }) {
             }
           }
         ]
-      );
+      });
     } else {
       await saveFavorite(video);
       setFavIds([...favIds, videoId]);
@@ -389,7 +392,7 @@ export default function HomeScreen({ navigation, route }) {
               <X size={22} color={theme.subtext} />
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity onPress={() => Alert.alert("Voice Search", "Voice search is coming soon! 🙏")}>
+            <TouchableOpacity onPress={() => showAlert({ title: "Voice Search", message: "Voice search is coming soon! 🙏" })}>
               <Mic size={22} color={theme.subtext} />
             </TouchableOpacity>
           )}
@@ -421,6 +424,7 @@ export default function HomeScreen({ navigation, route }) {
               handleSubTypePress={handleSubTypePress}
               dailyQuote={dailyQuote}
               DIVINE_QUOTES={DIVINE_QUOTES}
+              showAlert={showAlert}
             />
           }
           contentContainerStyle={styles.listContent}

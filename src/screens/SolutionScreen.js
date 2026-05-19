@@ -8,7 +8,7 @@ import { getSolutions, getCategories } from '../services/youtubeApi';
 import { Lightbulb, PlayCircle, Video, Music, Heart, Search, X } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { saveFavorite, getFavorites, removeFavorite } from '../storage/favorites';
-import { Alert } from 'react-native';
+import { useCustomAlert } from '../context/AlertContext';
 import { useAuth } from '../context/AuthContext';
 
 export default function SolutionScreen({ navigation }) {
@@ -16,6 +16,7 @@ export default function SolutionScreen({ navigation }) {
   const { t, language } = useLanguage();
   const { profile, isAuthenticated } = useAuth();
   const { playVideo } = usePlayer();
+  const { showAlert } = useCustomAlert();
   const [solutions, setSolutions] = useState([]);
   const [categories, setCategories] = useState([{ name: 'All', name_hi: 'सभी' }]);
   const [loading, setLoading] = useState(true);
@@ -83,10 +84,11 @@ export default function SolutionScreen({ navigation }) {
     const isFav = favIds.includes(videoId);
 
     if (isFav) {
-      Alert.alert(
-        t('removeFavoriteTitle') || 'Remove Favorite',
-        t('removeFavoriteMessage') || 'Are you sure you want to remove this from your favorites?',
-        [
+      showAlert({
+        title: t('removeFavoriteTitle') || 'Remove Favorite',
+        message: t('removeFavoriteMessage') || 'Are you sure you want to remove this from your favorites?',
+        type: 'warning',
+        buttons: [
           { text: t('cancel') || 'Cancel', style: 'cancel' },
           { 
             text: t('remove') || 'Remove', 
@@ -97,7 +99,7 @@ export default function SolutionScreen({ navigation }) {
             }
           }
         ]
-      );
+      });
     } else {
       await saveFavorite(item);
       loadFavorites();

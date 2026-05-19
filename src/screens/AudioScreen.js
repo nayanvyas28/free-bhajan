@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator, TextInput } from 'react-native';
+import { useCustomAlert } from '../context/AlertContext';
 import { useTheme } from '../context/ThemeContext';
 import Header from '../components/Header';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -15,6 +16,7 @@ export default function AudioScreen({ navigation }) {
   const { t } = useLanguage();
   const { profile, isAuthenticated } = useAuth();
   const { playVideo, currentVideo } = usePlayer();
+  const { showAlert } = useCustomAlert();
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [favIds, setFavIds] = useState([]);
@@ -59,10 +61,11 @@ export default function AudioScreen({ navigation }) {
     }
     const videoId = video.id.videoId || video.id;
     if (favIds.includes(videoId)) {
-      Alert.alert(
-        t('removeFavoriteTitle') || 'Remove Favorite',
-        t('removeFavoriteMessage') || 'Are you sure you want to remove this from your favorites?',
-        [
+      showAlert({
+        title: t('removeFavoriteTitle') || 'Remove Favorite',
+        message: t('removeFavoriteMessage') || 'Are you sure you want to remove this from your favorites?',
+        type: 'warning',
+        buttons: [
           { text: t('cancel') || 'Cancel', style: 'cancel' },
           { 
             text: t('remove') || 'Remove', 
@@ -73,7 +76,7 @@ export default function AudioScreen({ navigation }) {
             }
           }
         ]
-      );
+      });
     } else {
       await saveFavorite(video);
       setFavIds([...favIds, videoId]);

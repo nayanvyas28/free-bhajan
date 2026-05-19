@@ -48,6 +48,37 @@ export default function GlobalPlayer() {
   } = usePlayer();
   const { profile, getListeningLimit, updateProfile, referralSettings, isAuthenticated } = useAuth();
   const navigation = useNavigation();
+  const [currentRouteName, setCurrentRouteName] = useState(null);
+
+  useEffect(() => {
+    if (!navigation) return;
+
+    const getActiveRouteName = (state) => {
+      if (!state) return null;
+      let route = state.routes[state.index];
+      while (route.state) {
+        route = route.state.routes[route.state.index];
+      }
+      return route.name;
+    };
+
+    try {
+      const state = navigation.getState();
+      if (state) {
+        setCurrentRouteName(getActiveRouteName(state));
+      }
+    } catch (e) {
+      console.log('Error getting initial navigation state:', e);
+    }
+
+    const unsubscribe = navigation.addListener('state', (e) => {
+      if (e?.data?.state) {
+        setCurrentRouteName(getActiveRouteName(e.data.state));
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation]);
   const { getBannersByPosition } = useBanners();
   const bottomBanners = getBannersByPosition('bottom') || [];
   const hasBottomBanner = bottomBanners.length > 0;
@@ -750,7 +781,7 @@ export default function GlobalPlayer() {
   const renderTimerInfo = () => {
     if (!showTimerInfo) return null;
     return (
-      <Modal visible={true} transparent animationType="fade">
+      <View style={{ ...StyleSheet.absoluteFillObject, zIndex: 110000 }}>
         <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill}>
           <TouchableOpacity 
             style={styles.modalOverlay} 
@@ -831,14 +862,14 @@ export default function GlobalPlayer() {
             </View>
           </TouchableOpacity>
         </BlurView>
-      </Modal>
+      </View>
     );
   };
 
   const renderTimer = () => {
-    if (isExpanded || isTimerDismissed) return null;
+    if (isExpanded || isTimerDismissed || listeningLimit === Infinity) return null;
     return (
-      <View style={styles.timerAbsoluteWrapper} pointerEvents="box-none">
+      <View style={[styles.timerAbsoluteWrapper, { display: currentRouteName === 'Login' ? 'none' : 'flex' }]} pointerEvents="box-none">
         <Animated.View 
           {...timerPanResponder.panHandlers}
           style={[
@@ -928,7 +959,8 @@ export default function GlobalPlayer() {
       <Animated.View style={[styles.container, {
         height: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [70, height] }),
         bottom: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [bottomOffset, 0] }),
-        borderRadius: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] })
+        borderRadius: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }),
+        display: currentRouteName === 'Login' ? 'none' : 'flex'
       }]}>
         <LinearGradient colors={isDarkMode ? ['#0F172A', '#020617'] : ['#FFFBF5', '#FFF0E0']} style={StyleSheet.absoluteFill}>
           
