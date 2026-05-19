@@ -66,7 +66,8 @@ export default function LoginScreen({ navigation }) {
         console.log('[AUTH] Install Referrer response:', referrerData);
         if (referrerData && referrerData.installReferrer) {
           const referrerStr = referrerData.installReferrer;
-          const match = referrerStr.match(/utm_source=([A-Z0-9]{6})/i) || 
+          const match = referrerStr.match(/ref_([A-Z0-9]{6})/i) ||
+                        referrerStr.match(/utm_source=([A-Z0-9]{6})/i) || 
                         referrerStr.match(/referrer=([A-Z0-9]{6})/i) ||
                         referrerStr.match(/code=([A-Z0-9]{6})/i) ||
                         referrerStr.match(/\b([A-Z0-9]{6})\b/i);
@@ -89,7 +90,7 @@ export default function LoginScreen({ navigation }) {
       const text = await Clipboard.getStringAsync();
       if (text) {
         // Find 6-char alphanumeric code in clipboard text
-        const match = text.match(/(?:code:|REF-|refer\/)([A-Z0-9]{6})/i) || text.match(/\b([A-Z0-9]{6})\b/i);
+        const match = text.match(/(?:code:|REF-|refer\/|ref_)([A-Z0-9]{6})/i) || text.match(/\b([A-Z0-9]{6})\b/i);
         if (match && match[1]) {
           const detectedCode = match[1].toUpperCase();
           setReferralCode(detectedCode);
