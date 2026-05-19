@@ -83,7 +83,7 @@ function App() {
             <span className="text-xl font-extrabold tracking-tight text-white">MantraPuja Bhajan Admin</span>
           </div>
 
-          <nav className="flex-1 px-4 py-8 space-y-3">
+          <nav className="flex-1 overflow-y-auto px-4 py-8 space-y-3 custom-scrollbar">
             <SidebarLink to="/" icon={<LayoutDashboard size={22} />} label="Overview" end />
             <SidebarLink to="/add" icon={<PlusCircle size={22} />} label="Add Content" />
             <SidebarLink to="/categories" icon={<Tags size={22} />} label="Manage Categories" />
@@ -99,31 +99,41 @@ function App() {
             <SidebarLink to="/list" icon={<ListMusic size={22} />} label="Manage Library" />
           </nav>
 
-          <div className="p-6 border-t border-slate-800">
+          <div className="p-6 border-t border-slate-800 bg-[#1E293B]">
             <button 
               onClick={handleLogout}
-              className="flex items-center gap-3 text-slate-400 font-semibold px-4 py-3 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all w-full group"
+              className="flex items-center justify-center gap-3 bg-red-500/10 text-red-500 font-bold px-4 py-4 rounded-xl transition-all w-full hover:bg-red-500 hover:text-white group"
             >
-              <LogOut size={20} className="group-hover:translate-x-1 transition-transform" />
-              Logout
+              <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
+              Sign Out
             </button>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 overflow-auto bg-[#0F172A]">
-          <header className="h-20 bg-[#1E293B]/50 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-10 sticky top-0 z-10">
-            <div className="text-sm font-semibold text-slate-400 uppercase letter-spacing-wide">
+        <div className="flex-1 overflow-auto bg-[#0F172A] flex flex-col h-screen">
+          <header className="h-20 bg-[#1E293B]/90 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-10 sticky top-0 z-10 shrink-0">
+            <div className="text-sm font-semibold text-slate-400 uppercase tracking-widest">
               Management Portal
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm font-bold text-white">{session.user.email.split('@')[0]}</p>
-                <p className="text-[10px] text-amber-500 font-black uppercase">Super Admin</p>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3 bg-[#0F172A] px-4 py-2 rounded-2xl border border-slate-800">
+                <div className="text-right">
+                  <p className="text-sm font-bold text-white">{session.user.email.split('@')[0]}</p>
+                  <p className="text-[10px] text-amber-500 font-black uppercase tracking-wider">Super Admin</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-white font-black shadow-lg shadow-amber-500/30 text-lg uppercase">
+                  {session.user.email[0]}
+                </div>
               </div>
-              <div className="w-10 h-10 rounded-2xl bg-amber-500 flex items-center justify-center text-white font-black shadow-lg shadow-amber-500/30 text-xs uppercase">
-                {session.user.email[0]}
-              </div>
+              
+              <button 
+                onClick={handleLogout}
+                className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-red-500 flex items-center justify-center text-slate-400 hover:text-white transition-all group shadow-xl"
+                title="Logout"
+              >
+                <LogOut size={18} className="group-hover:scale-110 transition-transform" />
+              </button>
             </div>
           </header>
 
